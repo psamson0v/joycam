@@ -179,7 +179,7 @@ def isoCallback(n):  # Pass 1 (next ISO) or -1 (prev ISO)
 
 def evCallback(n):  # Pass 1 (next ISO) or -1 (prev ISO)
     global evMode
-    setIsoMode((evMode + n) % len(evData))
+    setEvMode((evMode + n) % len(evData))
 
 
 def settingCallback(n):  # Pass 1 (next setting) or -1 (prev setting)
@@ -576,14 +576,14 @@ buttons = [
 
 # Assorted utility functions -----------------------------------------------
 
-
+# Doesn't do anything at the moment
 def setFxMode(n):
     global fxMode
     fxMode = n
 # camera.image_effect = fxData[fxMode]
     buttons[6][5].setBg('fx-' + fxData[fxMode])
 
-
+# Might need to restart the camera for the settings to take?
 def setIsoMode(n):
     global isoMode
     isoMode = n
@@ -609,7 +609,8 @@ def saveSettings():
         d = {'fx': fxMode,
              'iso': isoMode,
              'size': sizeMode,
-             'store': storeMode}
+             'store': storeMode,
+             'ev' : evMode}
         pickle.dump(d, outfile)
         outfile.close()
     except BaseException:
@@ -629,6 +630,8 @@ def loadSettings():
             sizeModeCallback(d['size'])
         if 'store' in d:
             storeModeCallback(d['store'])
+        if 'ev' in d:
+            setEvMode(d['ev'])
     except BaseException:
         pass
 
