@@ -177,6 +177,10 @@ def isoCallback(n):  # Pass 1 (next ISO) or -1 (prev ISO)
     global isoMode
     setIsoMode((isoMode + n) % len(isoData))
 
+def evCallback(n):  # Pass 1 (next ISO) or -1 (prev ISO)
+    global evMode
+    setIsoMode((evMode + n) % len(evData))
+
 
 def settingCallback(n):  # Pass 1 (next setting) or -1 (prev setting)
     global screenMode
@@ -372,9 +376,10 @@ screenModePrior = -1      # Prior screen mode (for detecting changes)
 settingMode = 4      # Last-used settings mode (default = storage)
 storeMode = 0      # Storage mode; default = Photos folder
 storeModePrior = -1      # Prior storage mode (for detecting changes)
-sizeMode = 0      # Image size; default = Large
-fxMode = 0      # Image effect; default = Normal
-isoMode = 0      # ISO settingl default = Auto
+sizeMode = 0      # Image size: default = Large
+fxMode = 0      # Image effect: default = Normal
+isoMode = 0      # ISO setting; default = Auto
+evMode = 0       # EV Compensation. Default: 0
 iconPath = 'icons'  # Subdirectory containing UI bitmaps (PNG format)
 saveIdx = -1      # Image index for saving (-1 = none set yet)
 loadIdx = -1      # Image index for loading
@@ -401,6 +406,10 @@ sizeData = [  # Camera parameters for different size settings
 isoData = [  # Values for ISO settings [ISO value, indicator X position]
     [0, 27], [100, 64], [200, 97], [320, 137],
     [400, 164], [500, 197], [640, 244], [800, 297]]
+
+evData = [  # Values for EV compensation settings [EV compensation value, indicator X position]
+    [-8, 23], [-7, 23+18], [-6, 23+18*2], [-5, 23+18*3], [-4, 23+18*4], [-3, 23+18*5], [-2, 23+18*6], [-1, 23+18*7], [0, 23+18*8]
+     [1, 23+18*9], [2, 23+18*10], [3, 23+18*11], [4, 23+18*12], [5, 23+18*13], [6, 23+18*14], [7, 23+18*15], [8, 23+18*16] ]
 
 # A fixed list of image effects is used (rather than polling
 # camera.IMAGE_EFFECTS) because the latter contains a few elements
@@ -536,8 +545,25 @@ buttons = [
         Button((0, scaleHeight(157), scaleWidth(
             21), scaleHeight(19)), bg='iso-arrow'),
         Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(29)), bg='iso')],
+    
+     # Screen mode 8 is EV Compensation
+    [Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)), bg='done', cb=doneCallback),
+        Button((0, 0, scaleWidth(80), scaleHeight(52)),
+               bg='prev', cb=settingCallback, value=-1),
+        Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
+               bg='next', cb=settingCallback, value=1),
+        Button((0, scaleHeight(70), scaleWidth(80), scaleHeight(52)),
+               bg='prev', cb=evCallback, value=-1),
+        Button((scaleWidth(240), scaleHeight(70), scaleWidth(80),
+               scaleHeight(52)), bg='next', cb=evCallback, value=1),
+        Button((0, scaleHeight(79), scaleWidth(
+            320), scaleHeight(33)), bg='iso-0'),
+        Button((scaleWidth(9), scaleHeight(134), scaleWidth(302), scaleHeight(26)), bg='ev-bar'),
+        Button((0, scaleHeight(157), scaleWidth(
+            21), scaleHeight(19)), bg='iso-arrow'),
+        Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(29)), bg='iso')],
 
-    # Screen mode 8 is quit confirmation
+    # Screen mode 9 is quit confirmation
     [  # Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)), bg='done', cb=doneCallback),
         Button((0, 0, scaleWidth(80), scaleHeight(52)),
                bg='prev', cb=settingCallback, value=-1),
@@ -566,6 +592,13 @@ def setIsoMode(n):
     buttons[7][5].setBg('iso-' + str(isoData[isoMode][0]))
     buttons[7][7].rect = ((scaleWidth(isoData[isoMode][1] - 10),) +
                           buttons[7][7].rect[1:])
+
+def setEvMode(n):
+    global evMode
+    evMode = n
+    camera.set_controls = ({"ExposureValue": int(evData[evMode][0])})
+    buttons[8][7].rect = ((scaleWidth(evData[evMode][1] - 10),) +
+                          buttons[8][7].rect[1:])
 
 
 def saveSettings():
@@ -781,7 +814,10 @@ controls = [
     dict({pygame.K_UP: (isoCallback, 1),
           pygame.K_DOWN: (isoCallback, -1)
           }),  # 7 is ISO settings
-    dict({pygame.K_b: (quitCallback, None)})  # 8 is the quit screen
+    dict({pygame.K_UP: (evCallback, 1),
+          pygame.K_DOWN: (evCallback, -1)
+          }),  # 8 is EV settings
+    dict({pygame.K_b: (quitCallback, None)})  # 9 is the quit screen
 
 ]
 # Main loop ----------------------------------------------------------------
