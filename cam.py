@@ -34,7 +34,6 @@ import pygame
 import stat
 import threading
 import time
-import yuv2rgb
 import cv2
 from pygame.locals import *
 from subprocess import call
