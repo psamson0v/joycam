@@ -185,7 +185,7 @@ def evCallback(n):  # Pass 1 (next ISO) or -1 (prev ISO)
 def settingCallback(n):  # Pass 1 (next setting) or -1 (prev setting)
     global screenMode
     # Modes 1 and 2 are special modes you shouldn't be able to navigate into
-    acceptableModes = (0, 3, 4, 5, 6, 7, 8)
+    acceptableModes = (0, 3, 4, 5, 6, 7, 8, 9)
 
     # You can't navigate out of these normally
     if screenMode not in acceptableModes:
@@ -408,7 +408,7 @@ isoData = [  # Values for ISO settings [ISO value, indicator X position]
     [400, 164], [500, 197], [640, 244], [800, 297]]
 
 evData = [  # Values for EV compensation settings [EV compensation value, indicator X position]
-    [-8, 23], [-7, 23+18], [-6, 23+18*2], [-5, 23+18*3], [-4, 23+18*4], [-3, 23+18*5], [-2, 23+18*6], [-1, 23+18*7], [0, 23+18*8]
+    [-8, 23], [-7, 23+18], [-6, 23+18*2], [-5, 23+18*3], [-4, 23+18*4], [-3, 23+18*5], [-2, 23+18*6], [-1, 23+18*7], [0, 23+18*8],
      [1, 23+18*9], [2, 23+18*10], [3, 23+18*11], [4, 23+18*12], [5, 23+18*13], [6, 23+18*14], [7, 23+18*15], [8, 23+18*16] ]
 
 # A fixed list of image effects is used (rather than polling
@@ -561,7 +561,7 @@ buttons = [
         Button((scaleWidth(9), scaleHeight(134), scaleWidth(302), scaleHeight(26)), bg='ev-bar'),
         Button((0, scaleHeight(157), scaleWidth(
             21), scaleHeight(19)), bg='iso-arrow'),
-        Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(29)), bg='iso')],
+        Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(29)), bg='ev')],
 
     # Screen mode 9 is quit confirmation
     [  # Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)), bg='done', cb=doneCallback),
@@ -597,6 +597,7 @@ def setEvMode(n):
     global evMode
     evMode = n
     camera.set_controls = ({"ExposureValue": int(evData[evMode][0])})
+    buttons[8][5].setBg('ev-' + str(evData[evMode][0]))
     buttons[8][7].rect = ((scaleWidth(evData[evMode][1] - 10),) +
                           buttons[8][7].rect[1:])
 
@@ -654,16 +655,6 @@ def imgRange(path):
     finally:
         return None if min > max else (min, max)
 
-def processFile(job):
-    try:
-        if imageQueue.empty(): return
-        filename = imageQueue.get()
-        os.chown(filename, uid, gid) # Not working, why?
-        os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR |
-             stat.S_IRGRP | stat.S_IROTH)
-    except Exception as err:
-        print("Could not process file. Photo might still exist, but belong to root.", err)
-        quitCallback()
 
 def takePicture():
     global busy, gid, loadIdx, saveIdx, scaled, sizeMode, storeMode, storeModePrior, uid, screen_height, screen_width
@@ -703,26 +694,24 @@ def takePicture():
         if saveIdx > 9999:
             saveIdx = 0
 
-    #t = threading.Thread(target=spinner)
-    #t.start()
+    t = threading.Thread(target=spinner)
+    t.start()
 
     scaled = None
     try:
-        # TODO: indicator that saving is happening
-        imageQueue.put(filename)
-        camera.capture_file(filename, format='jpeg', wait=False, signal_function=processFile)
-        #processFile()
-    except Exception as err:
-        print(err)
-        quitCallback()
-    except OSError as err:
-        print(err)
-        quitCallback()
+        camera.capture_file(filename, format='jpeg')
+    # Set image file ownership to pi user, mode to 644
+    # os.chown(filename, uid, gid) # Not working, why?
+        os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR |
+                 stat.S_IRGRP | stat.S_IROTH)
+        img = pygame.image.load(filename)
+        scaled = pygame.transform.scale(img, sizeData[sizeMode][1])
+
     finally:
         # Add error handling/indicator (disk full, etc.)
-        pass
-        #busy = False
-        #t.join()
+
+        busy = False
+        t.join()
 
     pygame.display.update()
     loadIdx = saveIdx
@@ -731,12 +720,16 @@ def takePicture():
 # Initialization -----------------------------------------------------------
 # Init framebuffer/touchscreen environment variables
 os.putenv('SDL_VIDEODRIVER', 'fbcon')
+os.putenv('SDL_FBDEV', '/dev/fb0')
 # !!!!!!!ATTENTION!!!!!!!!
 # When attached to an HDMI monitor, your TFT display will be /dev/fb1
 # When operating on its own, your TFT display will be /dev/fb0
-os.putenv('SDL_FBDEV', '/dev/fb0')
+# To run in a desktop window, comment out the SDL_VIDEODRIVER and SDL_FBDEV settings
+# And disable fullscreen below
 os.putenv('SDL_MOUSEDRV', 'TSLIB')
 os.putenv('SDL_MOUSEDEV', '/dev/input/event3')
+
+
 
 # Get user & group IDs for file & folder creation
 # (Want these to be 'pi' or other user, not root)
@@ -746,19 +739,18 @@ s = os.getenv("SUDO_GID")
 gid = int(s) if s else os.getgid()
 
 
+# Init camera and set up default values
+res = (screen_width, screen_height)
+
 # Init pygame and screen
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+# Uncomment to run in a window on a desktop instead
+# screen = pygame.display.set_mode(res)
 pygame.mouse.set_visible(False)
-
-# Init camera and set up default values
-res = (screen_width, screen_height)
-rgb = bytearray(screen_width * screen_height * 3)
 
 # Set up Camera
 camera = Picamera2()
-# preview_config = camera.create_preview_configuration(
-#    {"size": (screen_width, screen_height), "format": "BGR888"})
 main_config = {"size": sizeData[sizeMode][0]}
 lores_config = {"size": res}
 
@@ -772,10 +764,6 @@ camera.start()
 # Set up buttons
 
 atexit.register(camera.stop)
-# camera.resolution = sizeData[sizeMode][1]
-# camera.crop       = sizeData[sizeMode][2]
-# camera.crop       = (0.0, 0.0, 1.0, 1.0)
-# Leave raw format at default YUV, don't touch, don't set to RGB!
 
 # Load all icons at startup.
 for file in os.listdir(iconPath):
@@ -817,12 +805,12 @@ controls = [
     dict({pygame.K_UP: (isoCallback, 1),
           pygame.K_DOWN: (isoCallback, -1)
           }),  # 7 is ISO settings
-    dict({pygame.K_UP: (evCallback, 1),
+     dict({pygame.K_UP: (evCallback, 1),
           pygame.K_DOWN: (evCallback, -1)
           }),  # 8 is EV settings
     dict({pygame.K_b: (quitCallback, None)})  # 9 is the quit screen
+    ]
 
-]
 # Main loop ----------------------------------------------------------------
 
 while (True):
@@ -861,7 +849,10 @@ while (True):
         rgb = cv2.cvtColor(yuv420, cv2.COLOR_YUV420p2RGB)
         # The image that comes out of cv2 is distorted and has the wrong size.
         # Good enough for a viewfinder, but I might need to do something about it later.
-        img = pygame.image.frombuffer(rgb, camera.still_configuration.lores.size, 'RGB')
+        
+        # Dimensions of the output buffer might not be the same as the input. Surprise!
+        h, w, d = rgb.shape
+        img = pygame.image.frombuffer(rgb, (w,h), 'RGB')
         if pygame.display.get_init():
             screen.fill(0)
             fillBlit((0,0,screen_width, screen_height), img, screen, True)
