@@ -38,6 +38,7 @@ import cv2
 from pygame.locals import *
 from subprocess import call
 import queue
+import math
 
 # UI classes ---------------------------------------------------------------
 
@@ -353,20 +354,23 @@ def storeModeCallback(n):  # Radio buttons on storage settings screen
     buttons[4][storeMode + 3].setBg('radio3-1')
 
 
-def sizeModeCallback(n):  # Radio buttons on size settings screen
+def setSizeMode(n):
     global sizeMode
     # Size mode should never be out of bounds, but it might be!
     buttons[5][sizeMode + 3].setBg('radio3-0')
-    sizeMode+=n
-    sizeMode %= len(sizeData)
+    sizeMode = n
     buttons[5][sizeMode + 3].setBg('radio3-1')
     camera.still_configuration.main.size = sizeData[n][0]
     camera.stop()
     camera.configure("still")
     camera.still_configuration.align()
     camera.start()
-# camera.resolution = sizeData[sizeMode][1]
-# camera.crop       = sizeData[sizeMode][2]
+
+def sizeModeCallback(n):  # Radio buttons on size settings screen
+    global sizeMode
+    setSizeMode((sizeMode + n) % len(sizeData))
+
+
 
 
 # Global stuff -------------------------------------------------------------
@@ -408,8 +412,24 @@ isoData = [  # Values for ISO settings [ISO value, indicator X position]
     [400, 164], [500, 197], [640, 244], [800, 297]]
 
 evData = [  # Values for EV compensation settings [EV compensation value, indicator X position]
-    [-8, 23], [-7, 23+18], [-6, 23+18*2], [-5, 23+18*3], [-4, 23+18*4], [-3, 23+18*5], [-2, 23+18*6], [-1, 23+18*7], [0, 23+18*8],
-     [1, 23+18*9], [2, 23+18*10], [3, 23+18*11], [4, 23+18*12], [5, 23+18*13], [6, 23+18*14], [7, 23+18*15], [8, 23+18*16] ]
+        [-8, 13],   
+        [-7, int(13+18.5)],
+        [-6, int(13+18.5*2)], 
+        [-5, int(13+18.5*3)],
+        [-4, int(13+18.5*4)],
+        [-3, int(13+18.5*5)],
+        [-2, int(13+18.5*6)],
+        [-1, int(13+18.5*7)],
+        [0,  int(13+18.5*8)],
+        [1,  int(13+18.5*9)],
+        [2,  int(13+18.5*10)],
+        [3,  int(13+18.5*11)],
+        [4,  int(13+18.5*12)],
+        [5,  int(13+18.5*13)], 
+        [6,  int(13+18.5*14)], 
+        [7,  int(13+18.5*15)], 
+        [8,  int(13+18.5*16)]
+      ]
 
 # A fixed list of image effects is used (rather than polling
 # camera.IMAGE_EFFECTS) because the latter contains a few elements
@@ -583,12 +603,14 @@ def setFxMode(n):
 # camera.image_effect = fxData[fxMode]
     buttons[6][5].setBg('fx-' + fxData[fxMode])
 
-# Might need to restart the camera for the settings to take?
 def setIsoMode(n):
     global isoMode
     isoMode = n
     # pycamera2 deals with analogue and digital gain, not ISO
-    camera.set_controls = ({"AnalogueGain": int(isoData[isoMode][0]/100)})
+    if isoMode > 0:
+        camera.controls.AnalogueGain = math.log2(isoData[isoMode][0]/100)
+    # Only works when auto exposure is off, 0 for Auto
+    camera.controls.AeEnable = isoMode == 0
     buttons[7][5].setBg('iso-' + str(isoData[isoMode][0]))
     buttons[7][7].rect = ((scaleWidth(isoData[isoMode][1] - 10),) +
                           buttons[7][7].rect[1:])
@@ -596,7 +618,9 @@ def setIsoMode(n):
 def setEvMode(n):
     global evMode
     evMode = n
-    camera.set_controls = ({"ExposureValue": int(evData[evMode][0])})
+    camera.controls.ExposureValue = evData[evMode][0]/4.0
+    # Only seems to work when auto exposure is on
+    camera.controls.AeEnable = True
     buttons[8][5].setBg('ev-' + str(evData[evMode][0]))
     buttons[8][7].rect = ((scaleWidth(evData[evMode][1] - 10),) +
                           buttons[8][7].rect[1:])
@@ -628,7 +652,7 @@ def loadSettings():
         if 'iso' in d:
             setIsoMode(d['iso'])
         if 'size' in d:
-            sizeModeCallback(d['size'])
+            setSizeMode(d['size'])
         if 'store' in d:
             storeModeCallback(d['store'])
         if 'ev' in d:
