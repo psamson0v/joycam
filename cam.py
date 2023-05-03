@@ -38,6 +38,7 @@ import cv2
 from pygame.locals import *
 from subprocess import call
 import queue
+import math
 
 # UI classes ---------------------------------------------------------------
 
@@ -177,11 +178,15 @@ def isoCallback(n):  # Pass 1 (next ISO) or -1 (prev ISO)
     global isoMode
     setIsoMode((isoMode + n) % len(isoData))
 
+def evCallback(n):  # Pass 1 (next ISO) or -1 (prev ISO)
+    global evMode
+    setEvMode((evMode + n) % len(evData))
+
 
 def settingCallback(n):  # Pass 1 (next setting) or -1 (prev setting)
     global screenMode
     # Modes 1 and 2 are special modes you shouldn't be able to navigate into
-    acceptableModes = (0, 3, 4, 5, 6, 7, 8)
+    acceptableModes = (0, 3, 4, 5, 6, 7, 8, 9)
 
     # You can't navigate out of these normally
     if screenMode not in acceptableModes:
@@ -349,20 +354,23 @@ def storeModeCallback(n):  # Radio buttons on storage settings screen
     buttons[4][storeMode + 3].setBg('radio3-1')
 
 
-def sizeModeCallback(n):  # Radio buttons on size settings screen
+def setSizeMode(n):
     global sizeMode
     # Size mode should never be out of bounds, but it might be!
     buttons[5][sizeMode + 3].setBg('radio3-0')
-    sizeMode+=n
-    sizeMode %= len(sizeData)
+    sizeMode = n
     buttons[5][sizeMode + 3].setBg('radio3-1')
     camera.still_configuration.main.size = sizeData[n][0]
     camera.stop()
     camera.configure("still")
     camera.still_configuration.align()
     camera.start()
-# camera.resolution = sizeData[sizeMode][1]
-# camera.crop       = sizeData[sizeMode][2]
+
+def sizeModeCallback(n):  # Radio buttons on size settings screen
+    global sizeMode
+    setSizeMode((sizeMode + n) % len(sizeData))
+
+
 
 
 # Global stuff -------------------------------------------------------------
@@ -372,9 +380,10 @@ screenModePrior = -1      # Prior screen mode (for detecting changes)
 settingMode = 4      # Last-used settings mode (default = storage)
 storeMode = 0      # Storage mode; default = Photos folder
 storeModePrior = -1      # Prior storage mode (for detecting changes)
-sizeMode = 0      # Image size; default = Large
-fxMode = 0      # Image effect; default = Normal
-isoMode = 0      # ISO settingl default = Auto
+sizeMode = 0      # Image size: default = Large
+fxMode = 0      # Image effect: default = Normal
+isoMode = 0      # ISO setting; default = Auto
+evMode = 0       # EV Compensation. Default: 0
 iconPath = 'icons'  # Subdirectory containing UI bitmaps (PNG format)
 saveIdx = -1      # Image index for saving (-1 = none set yet)
 loadIdx = -1      # Image index for loading
@@ -401,6 +410,26 @@ sizeData = [  # Camera parameters for different size settings
 isoData = [  # Values for ISO settings [ISO value, indicator X position]
     [0, 27], [100, 64], [200, 97], [320, 137],
     [400, 164], [500, 197], [640, 244], [800, 297]]
+
+evData = [  # Values for EV compensation settings [EV compensation value, indicator X position]
+        [-8, 13],   
+        [-7, int(13+18.5)],
+        [-6, int(13+18.5*2)], 
+        [-5, int(13+18.5*3)],
+        [-4, int(13+18.5*4)],
+        [-3, int(13+18.5*5)],
+        [-2, int(13+18.5*6)],
+        [-1, int(13+18.5*7)],
+        [0,  int(13+18.5*8)],
+        [1,  int(13+18.5*9)],
+        [2,  int(13+18.5*10)],
+        [3,  int(13+18.5*11)],
+        [4,  int(13+18.5*12)],
+        [5,  int(13+18.5*13)], 
+        [6,  int(13+18.5*14)], 
+        [7,  int(13+18.5*15)], 
+        [8,  int(13+18.5*16)]
+      ]
 
 # A fixed list of image effects is used (rather than polling
 # camera.IMAGE_EFFECTS) because the latter contains a few elements
@@ -536,8 +565,25 @@ buttons = [
         Button((0, scaleHeight(157), scaleWidth(
             21), scaleHeight(19)), bg='iso-arrow'),
         Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(29)), bg='iso')],
+    
+     # Screen mode 8 is EV Compensation
+    [Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)), bg='done', cb=doneCallback),
+        Button((0, 0, scaleWidth(80), scaleHeight(52)),
+               bg='prev', cb=settingCallback, value=-1),
+        Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
+               bg='next', cb=settingCallback, value=1),
+        Button((0, scaleHeight(70), scaleWidth(80), scaleHeight(52)),
+               bg='prev', cb=evCallback, value=-1),
+        Button((scaleWidth(240), scaleHeight(70), scaleWidth(80),
+               scaleHeight(52)), bg='next', cb=evCallback, value=1),
+        Button((0, scaleHeight(79), scaleWidth(
+            320), scaleHeight(33)), bg='iso-0'),
+        Button((scaleWidth(9), scaleHeight(134), scaleWidth(302), scaleHeight(26)), bg='ev-bar'),
+        Button((0, scaleHeight(157), scaleWidth(
+            21), scaleHeight(19)), bg='iso-arrow'),
+        Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(29)), bg='ev')],
 
-    # Screen mode 8 is quit confirmation
+    # Screen mode 9 is quit confirmation
     [  # Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)), bg='done', cb=doneCallback),
         Button((0, 0, scaleWidth(80), scaleHeight(52)),
                bg='prev', cb=settingCallback, value=-1),
@@ -550,22 +596,34 @@ buttons = [
 
 # Assorted utility functions -----------------------------------------------
 
-
+# Doesn't do anything at the moment
 def setFxMode(n):
     global fxMode
     fxMode = n
 # camera.image_effect = fxData[fxMode]
     buttons[6][5].setBg('fx-' + fxData[fxMode])
 
-
 def setIsoMode(n):
     global isoMode
     isoMode = n
     # pycamera2 deals with analogue and digital gain, not ISO
-    camera.set_controls = ({"AnalogueGain": int(isoData[isoMode][0]/100)})
+    if isoMode > 0:
+        camera.controls.AnalogueGain = math.log2(isoData[isoMode][0]/100)
+    # Only works when auto exposure is off, 0 for Auto
+    camera.controls.AeEnable = isoMode == 0
     buttons[7][5].setBg('iso-' + str(isoData[isoMode][0]))
     buttons[7][7].rect = ((scaleWidth(isoData[isoMode][1] - 10),) +
                           buttons[7][7].rect[1:])
+
+def setEvMode(n):
+    global evMode
+    evMode = n
+    camera.controls.ExposureValue = evData[evMode][0]/4.0
+    # Only seems to work when auto exposure is on
+    camera.controls.AeEnable = True
+    buttons[8][5].setBg('ev-' + str(evData[evMode][0]))
+    buttons[8][7].rect = ((scaleWidth(evData[evMode][1] - 10),) +
+                          buttons[8][7].rect[1:])
 
 
 def saveSettings():
@@ -576,7 +634,8 @@ def saveSettings():
         d = {'fx': fxMode,
              'iso': isoMode,
              'size': sizeMode,
-             'store': storeMode}
+             'store': storeMode,
+             'ev' : evMode}
         pickle.dump(d, outfile)
         outfile.close()
     except BaseException:
@@ -593,9 +652,11 @@ def loadSettings():
         if 'iso' in d:
             setIsoMode(d['iso'])
         if 'size' in d:
-            sizeModeCallback(d['size'])
+            setSizeMode(d['size'])
         if 'store' in d:
             storeModeCallback(d['store'])
+        if 'ev' in d:
+            setEvMode(d['ev'])
     except BaseException:
         pass
 
@@ -618,16 +679,6 @@ def imgRange(path):
     finally:
         return None if min > max else (min, max)
 
-def processFile(job):
-    try:
-        if imageQueue.empty(): return
-        filename = imageQueue.get()
-        os.chown(filename, uid, gid) # Not working, why?
-        os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR |
-             stat.S_IRGRP | stat.S_IROTH)
-    except Exception as err:
-        print("Could not process file. Photo might still exist, but belong to root.", err)
-        quitCallback()
 
 def takePicture():
     global busy, gid, loadIdx, saveIdx, scaled, sizeMode, storeMode, storeModePrior, uid, screen_height, screen_width
@@ -667,26 +718,24 @@ def takePicture():
         if saveIdx > 9999:
             saveIdx = 0
 
-    #t = threading.Thread(target=spinner)
-    #t.start()
+    t = threading.Thread(target=spinner)
+    t.start()
 
     scaled = None
     try:
-        # TODO: indicator that saving is happening
-        imageQueue.put(filename)
-        camera.capture_file(filename, format='jpeg', wait=False, signal_function=processFile)
-        #processFile()
-    except Exception as err:
-        print(err)
-        quitCallback()
-    except OSError as err:
-        print(err)
-        quitCallback()
+        camera.capture_file(filename, format='jpeg')
+    # Set image file ownership to pi user, mode to 644
+    # os.chown(filename, uid, gid) # Not working, why?
+        os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR |
+                 stat.S_IRGRP | stat.S_IROTH)
+        img = pygame.image.load(filename)
+        scaled = pygame.transform.scale(img, sizeData[sizeMode][1])
+
     finally:
         # Add error handling/indicator (disk full, etc.)
-        pass
-        #busy = False
-        #t.join()
+
+        busy = False
+        t.join()
 
     pygame.display.update()
     loadIdx = saveIdx
@@ -695,12 +744,16 @@ def takePicture():
 # Initialization -----------------------------------------------------------
 # Init framebuffer/touchscreen environment variables
 os.putenv('SDL_VIDEODRIVER', 'fbcon')
+os.putenv('SDL_FBDEV', '/dev/fb0')
 # !!!!!!!ATTENTION!!!!!!!!
 # When attached to an HDMI monitor, your TFT display will be /dev/fb1
 # When operating on its own, your TFT display will be /dev/fb0
-os.putenv('SDL_FBDEV', '/dev/fb0')
+# To run in a desktop window, comment out the SDL_VIDEODRIVER and SDL_FBDEV settings
+# And disable fullscreen below
 os.putenv('SDL_MOUSEDRV', 'TSLIB')
 os.putenv('SDL_MOUSEDEV', '/dev/input/event3')
+
+
 
 # Get user & group IDs for file & folder creation
 # (Want these to be 'pi' or other user, not root)
@@ -710,19 +763,18 @@ s = os.getenv("SUDO_GID")
 gid = int(s) if s else os.getgid()
 
 
+# Init camera and set up default values
+res = (screen_width, screen_height)
+
 # Init pygame and screen
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+# Uncomment to run in a window on a desktop instead
+# screen = pygame.display.set_mode(res)
 pygame.mouse.set_visible(False)
-
-# Init camera and set up default values
-res = (screen_width, screen_height)
-rgb = bytearray(screen_width * screen_height * 3)
 
 # Set up Camera
 camera = Picamera2()
-# preview_config = camera.create_preview_configuration(
-#    {"size": (screen_width, screen_height), "format": "BGR888"})
 main_config = {"size": sizeData[sizeMode][0]}
 lores_config = {"size": res}
 
@@ -736,10 +788,6 @@ camera.start()
 # Set up buttons
 
 atexit.register(camera.stop)
-# camera.resolution = sizeData[sizeMode][1]
-# camera.crop       = sizeData[sizeMode][2]
-# camera.crop       = (0.0, 0.0, 1.0, 1.0)
-# Leave raw format at default YUV, don't touch, don't set to RGB!
 
 # Load all icons at startup.
 for file in os.listdir(iconPath):
@@ -781,9 +829,12 @@ controls = [
     dict({pygame.K_UP: (isoCallback, 1),
           pygame.K_DOWN: (isoCallback, -1)
           }),  # 7 is ISO settings
-    dict({pygame.K_b: (quitCallback, None)})  # 8 is the quit screen
+     dict({pygame.K_UP: (evCallback, 1),
+          pygame.K_DOWN: (evCallback, -1)
+          }),  # 8 is EV settings
+    dict({pygame.K_b: (quitCallback, None)})  # 9 is the quit screen
+    ]
 
-]
 # Main loop ----------------------------------------------------------------
 
 while (True):
@@ -822,7 +873,10 @@ while (True):
         rgb = cv2.cvtColor(yuv420, cv2.COLOR_YUV420p2RGB)
         # The image that comes out of cv2 is distorted and has the wrong size.
         # Good enough for a viewfinder, but I might need to do something about it later.
-        img = pygame.image.frombuffer(rgb, camera.still_configuration.lores.size, 'RGB')
+        
+        # Dimensions of the output buffer might not be the same as the input. Surprise!
+        h, w, d = rgb.shape
+        img = pygame.image.frombuffer(rgb, (w,h), 'RGB')
         if pygame.display.get_init():
             screen.fill(0)
             fillBlit((0,0,screen_width, screen_height), img, screen, True)
