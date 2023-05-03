@@ -774,7 +774,9 @@ screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 pygame.mouse.set_visible(False)
 
 # Set up Camera
-camera = Picamera2()
+# Tuning file for the Raspberry Pi HQ Camera
+tuning = Picamera2.load_tuning_file("imx477.json")
+camera = Picamera2(tuning=tuning)
 main_config = {"size": sizeData[sizeMode][0]}
 lores_config = {"size": res}
 
