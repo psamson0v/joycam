@@ -750,9 +750,9 @@ os.putenv('SDL_FBDEV', '/dev/fb0')
 # When operating on its own, your TFT display will be /dev/fb0
 # To run in a desktop window, comment out the SDL_VIDEODRIVER and SDL_FBDEV settings
 # And disable fullscreen below
-os.putenv('SDL_MOUSEDRV', 'TSLIB')
-os.putenv('SDL_MOUSEDEV', '/dev/input/event3')
-
+# os.putenv('SDL_MOUSEDRV', 'TSLIB')
+# os.putenv('SDL_MOUSEDEV', '/dev/input/event3')
+os.putenv('SDL_NOMOUSE', '1')
 
 
 # Get user & group IDs for file & folder creation
@@ -872,9 +872,8 @@ while (True):
     # Refresh display
     if screenMode >= 3:  # Viewfinder or settings modes
         yuv420 = camera.capture_array("lores")
-        rgb = cv2.cvtColor(yuv420, cv2.COLOR_YUV420p2RGB)
-        # The image that comes out of cv2 is distorted and has the wrong size.
-        # Good enough for a viewfinder, but I might need to do something about it later.
+        rgb = cv2.cvtColor(yuv420, cv2.COLOR_YUV420p2BGR)
+        # The use of BGR here is intentional, for some reason the colours are wrong otherwise.
         
         # Dimensions of the output buffer might not be the same as the input. Surprise!
         h, w, d = rgb.shape
