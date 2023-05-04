@@ -401,10 +401,10 @@ uploader = '/home/pi/Dropbox-Uploader/dropbox_uploader.sh'
 upconfig = '/home/pi/.dropbox_uploader'
 
 sizeData = [  # Camera parameters for different size settings
-    # Full res      Viewfinder  Crop window
-    [(4000, 3000), (240, 240), (0.0, 0.0, 1.0, 1.0)],  # 12 MP
-    [(3840, 2160), (240, 240), (0.0, 0.0, 1.0, 1.0)],  # 8 MP / 4K HD
-    [(2592, 1944), (240, 240), (0.0, 0.0, 1.0, 1.0)],  # 5 MP
+    # Full res      Viewfinder  
+    [(4000, 3000), (320, 240)],  # 12 MP
+    [(3840, 2160), (426, 240)],  # 8 MP / 4K HD
+    [(2592, 1944), (320, 240)],  # 5 MP
 ]
 
 isoData = [  # Values for ISO settings [ISO value, indicator X position]
@@ -605,25 +605,33 @@ def setFxMode(n):
 
 def setIsoMode(n):
     global isoMode
-    isoMode = n
-    # pycamera2 deals with analogue and digital gain, not ISO
-    if isoMode > 0:
-        camera.controls.AnalogueGain = math.log2(isoData[isoMode][0]/100)
-    # Only works when auto exposure is off, 0 for Auto
-    camera.controls.AeEnable = isoMode == 0
-    buttons[7][5].setBg('iso-' + str(isoData[isoMode][0]))
-    buttons[7][7].rect = ((scaleWidth(isoData[isoMode][1] - 10),) +
-                          buttons[7][7].rect[1:])
+    try:   
+        isoMode = n
+        # pycamera2 deals with analogue and digital gain, not ISO
+        if isoMode > 0:
+            camera.controls.AnalogueGain = math.log2(isoData[isoMode][0]/100)
+        # Only works when auto exposure is off, 0 for Auto
+        camera.controls.AeEnable = isoMode == 0
+        buttons[7][5].setBg('iso-' + str(isoData[isoMode][0]))
+        buttons[7][7].rect = ((scaleWidth(isoData[isoMode][1] - 10),) +
+                            buttons[7][7].rect[1:])
+    except:
+        print("Could not change ISO mode")
+        # For some reason changes to the settings sometimes break with a key error!
 
 def setEvMode(n):
     global evMode
-    evMode = n
-    camera.controls.ExposureValue = evData[evMode][0]/4.0
-    # Only seems to work when auto exposure is on
-    camera.controls.AeEnable = True
-    buttons[8][5].setBg('ev-' + str(evData[evMode][0]))
-    buttons[8][7].rect = ((scaleWidth(evData[evMode][1] - 10),) +
-                          buttons[8][7].rect[1:])
+    try:
+        evMode = n
+        camera.controls.ExposureValue = evData[evMode][0]/2.0
+        # Only seems to work when auto exposure is on
+        camera.controls.AeEnable = True
+        buttons[8][5].setBg('ev-' + str(evData[evMode][0]))
+        buttons[8][7].rect = ((scaleWidth(evData[evMode][1] - 10),) +
+                            buttons[8][7].rect[1:])
+    except:
+        print("Could not change EV Mode")
+        # For some reason changes to the settings sometimes break with a key error!
 
 
 def saveSettings():
@@ -778,12 +786,13 @@ pygame.mouse.set_visible(False)
 tuning = Picamera2.load_tuning_file("imx477.json")
 camera = Picamera2(tuning=tuning)
 main_config = {"size": sizeData[sizeMode][0]}
-lores_config = {"size": res}
+lores_config = {"size": sizeData[sizeMode][1]}
 
-still_config = camera.create_still_configuration(main_config, lores_config, display="lores")
+still_config = camera.create_still_configuration(main_config, lores_config)
 camera.configure(still_config)
 camera.still_configuration.enable_lores()
-camera.still_configuration.lores.size = res
+# Who knows why, but without setting the resolution here a second time I just get an empty screen
+camera.still_configuration.lores.size = sizeData[sizeMode][1]
 camera.still_configuration.align()
 camera.start()
 
@@ -883,6 +892,7 @@ while (True):
             fillBlit((0,0,screen_width, screen_height), img, screen, True)
     elif screenMode < 2:  # Playback mode or delete confirmation
         img = scaled       # Show last-loaded image
+        screen.fill(0)
         fitBlit((0,0,screen_width, screen_height), img, screen)
     else:                # 'No Photos' mode
         img = None         # You get nothing, good day sir
