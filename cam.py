@@ -175,6 +175,7 @@ class Button:
 
 
 class Screen(Enum):
+    REFRESH = -1 # Fake screen mode to force a referesh
     VIEW = 0
     DELETE = 1
     NO_IMG = 2
@@ -209,16 +210,14 @@ def settingCallback(n):  # Pass 1 (next setting) or -1 (prev setting)
     acceptableModes = (Screen.VIEW, Screen.VIEWFINDER, Screen.SETTINGS_EV,
                        Screen.SETTINGS_ISO, Screen.SETTINGS_SIZE, Screen.QUIT)
 
-    currentScreen = Screen(screenMode)
-
     # You can't navigate out of these normally
-    if currentScreen not in acceptableModes:
+    if screenMode not in acceptableModes:
         return
 
-    position = acceptableModes.index(currentScreen)
+    position = acceptableModes.index(screenMode)
     position += n
     position %= len(acceptableModes)
-    screenMode = acceptableModes[position].value
+    screenMode = acceptableModes[position]
 
 
 def fxCallback(n):  # Pass 1 (next effect) or -1 (prev effect)
@@ -235,28 +234,28 @@ def viewCallback(n):  # Viewfinder buttons
     global loadIdx, scaled, screenMode, screenModePrior, settingMode, storeMode
 
     if n == 0:   # Gear icon (settings)
-        screenMode = settingMode  # Switch to last settings mode
+        screenMode = Screen(settingMode)  # Switch to last settings mode
     elif n == 1:  # Play icon (image playback)
         if scaled:  # Last photo is already memory-resident
             loadIdx = saveIdx
-            screenMode = 0  # Image playback
-            screenModePrior = -1  # Force screen refresh
+            screenMode = Screen.VIEW  # Image playback
+            screenModePrior = Screen.REFRESH  # Force screen refresh
         else:      # Load image
             r = imgRange(pathData[storeMode])
             if r:
                 showImage(r[1])  # Show last image in directory
             else:
-                screenMode = 2  # No images
+                screenMode = Screen.NO_IMG  # No images
     else:  # Rest of screen = shutter
         takePicture()
 
 
 def doneCallback():  # Exit settings
     global screenMode, settingMode
-    if screenMode > 3:
-        settingMode = screenMode
+    if screenMode.value > 3:
+        settingMode = screenMode.value
         saveSettings()
-    screenMode = 3  # Switch back to viewfinder mode
+    screenMode = Screen.VIEWFINDER  # Switch back to viewfinder mode
 
 
 screen = None  # Ugly hack to get the image viewer to load well
@@ -268,22 +267,22 @@ def spinner():
     # screen is not ready
     if not screen:
         return
-    buttons.get(Screen(screenMode))[3].setBg('working')
-    buttons.get(Screen(screenMode))[3].draw(screen)
+    buttons.get(screenMode)[3].setBg('working')
+    buttons.get(screenMode)[3].draw(screen)
     pygame.display.update()
 
     busy = True
     n = 0
     while busy is True:
-        buttons.get(Screen(screenMode))[4].setBg('work-' + str(n))
-        buttons.get(Screen(screenMode))[4].draw(screen)
+        buttons.get(screenMode)[4].setBg('work-' + str(n))
+        buttons.get(screenMode)[4].draw(screen)
         pygame.display.update()
         n = (n + 1) % 5
         time.sleep(0.15)
 
-    buttons.get(Screen(screenMode))[3].setBg(None)
-    buttons.get(Screen(screenMode))[4].setBg(None)
-    screenModePrior = -1  # Force refresh
+    buttons.get(screenMode)[3].setBg(None)
+    buttons.get(screenMode)[4].setBg(None)
+    screenModePrior = Screen.REFRESH  # Force refresh
 
 
 def imgRange(path):
@@ -340,27 +339,27 @@ def showImage(n):
     busy = False
     t.join()
 
-    screenMode = 0  # Photo playback
-    screenModePrior = -1  # Force screen refresh
+    screenMode = Screen.VIEW  # Photo playback
+    screenModePrior = Screen.REFRESH  # Force screen refresh
 
 
 def imageCallback(n):  # Pass 1 (next image), -1 (prev image) or 0 (delete)
     global screenMode
     if n == 0:
-        screenMode = 1  # Delete confirmation
+        screenMode = Screen.DELETE  # Delete confirmation
     else:
         showNextImage(n)
 
 
 def deleteCallback(n):  # Delete confirmation
-    global loadIdx, scaled, screenMode, storeMode
+    global loadIdx, scaled, screenMode, screenModePrior, storeMode
 
     # Program returning to delete screen? Not inited yet
     if not screen:
         return
 
-    screenMode = 0
-    screenModePrior = -1
+    screenMode = Screen.VIEW
+    screenModePrior = Screen.REFRESH
     if n is True:
         os.remove(pathData[storeMode] + '/IMG_' + '%04d' % loadIdx + '.JPG')
         if (imgRange(pathData[storeMode])):
@@ -368,7 +367,7 @@ def deleteCallback(n):  # Delete confirmation
             pygame.display.update()
             showNextImage(-1)
         else:  # Last image deleteted; go to 'no images' mode
-            screenMode = 2
+            screenMode = Screen.NO_IMG
             scaled = None
             loadIdx = -1
 
@@ -400,8 +399,8 @@ def sizeModeCallback(n):  # Radio buttons on size settings screen
 
 
 # Global stuff -------------------------------------------------------------
-screenMode = 3      # Current screen mode; default = viewfinder
-screenModePrior = -1      # Prior screen mode (for detecting changes)
+screenMode = Screen.VIEWFINDER      # Current screen mode; default = viewfinder
+screenModePrior = Screen.REFRESH      # Prior screen mode (for detecting changes)
 settingMode = 4      # Last-used settings mode (default = storage)
 storeMode = 0      # Storage mode; default = Photos folder
 storeModePrior = -1      # Prior storage mode (for detecting changes)
@@ -896,8 +895,7 @@ while (True):
             if (event.type is KEYDOWN):
                 # Execute the appropriate function for this key in the controls
                 # array
-                callbackTuple = controls.get(
-                    Screen(screenMode)).get(event.key, None)
+                callbackTuple = controls.get(screenMode).get(event.key, None)
                 if callbackTuple:
                     if callbackTuple[1] is not None:
                         callbackTuple[0](callbackTuple[1])
@@ -916,11 +914,11 @@ while (True):
         # and refresh the display to show the live preview.  In other modes
         # (image playback, etc.), stop and refresh the screen only when
         # screenMode changes.
-        if screenMode >= 3 or screenMode != screenModePrior:
+        if screenMode.value >= 3 or screenMode != screenModePrior:
             break
 
     # Refresh display
-    if screenMode >= 3:  # Viewfinder or settings modes
+    if screenMode.value >= 3:  # Viewfinder or settings modes
         yuv420 = camera.capture_array("lores")
         rgb = cv2.cvtColor(yuv420, cv2.COLOR_YUV420p2BGR)
         # The use of BGR here is intentional, for some reason the colours are wrong otherwise.
@@ -932,7 +930,7 @@ while (True):
             screen.fill(0)
             img = pygame.transform.rotate(img, screen_rotation)
             fillBlit((0, 0, screen_width, screen_height), img, screen, True)
-    elif screenMode < 2:  # Playback mode or delete confirmation
+    elif screenMode.value < 2:  # Playback mode or delete confirmation
         img = scaled       # Show last-loaded image
         screen.fill(0)
         if (img):
@@ -942,7 +940,7 @@ while (True):
         img = None         # You get nothing, good day sir
 
     # Overlay buttons on display and update
-    for i, b in enumerate(buttons.get(Screen(screenMode))):
+    for i, b in enumerate(buttons.get(screenMode)):
         b.draw(screen)
     pygame.display.update()
 
