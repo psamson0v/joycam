@@ -390,6 +390,7 @@ loadIdx = -1      # Image index for loading
 scaled = None    # pygame Surface w/last-loaded image
 screen_height = 240     # TFT display height
 screen_width = 240     # TFT display width
+screen_rotation = 270 # counterclockwise rotation of your camera sensor from vertical (ribbon cable port pointing down)
 imageQueue = queue.Queue()
 
 # To use Dropbox uploader, must have previously run the dropbox_uploader.sh
@@ -460,11 +461,8 @@ icons = []  # This list gets populated at startup
 
 # Scaling button sized dynamically to screen resolution.
 # The old camera project hardcoded these to fit 320x240
-
-
 def scaleHeight(height):
     return int(height * screen_height / 240)
-
 
 def scaleWidth(width):
     return int(width * screen_width / 320)
@@ -889,11 +887,14 @@ while (True):
         img = pygame.image.frombuffer(rgb, (w,h), 'RGB')
         if pygame.display.get_init():
             screen.fill(0)
+            img = pygame.transform.rotate(img, screen_rotation)
             fillBlit((0,0,screen_width, screen_height), img, screen, True)
     elif screenMode < 2:  # Playback mode or delete confirmation
         img = scaled       # Show last-loaded image
         screen.fill(0)
-        fitBlit((0,0,screen_width, screen_height), img, screen)
+        if (img):
+            img = pygame.transform.rotate(img, screen_rotation)
+            fitBlit((0,0,screen_width, screen_height), img, screen, True)
     else:                # 'No Photos' mode
         img = None         # You get nothing, good day sir
 
