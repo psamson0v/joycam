@@ -39,6 +39,46 @@ from pygame.locals import *
 from subprocess import call
 import queue
 import math
+from enum import Enum
+
+
+def fitBlit(rect, bitmap, screen, smooth=False):
+    if bitmap is None:
+        return
+
+    scaledWidth = bitmap.get_width() / rect[2]
+    scaledHeight = bitmap.get_height() / rect[3]
+    scaleFactor = max(scaledWidth, scaledHeight)
+    if smooth:
+        transformed = pygame.transform.smoothscale(bitmap, (int(
+            bitmap.get_width() / scaleFactor), int(bitmap.get_height() / scaleFactor)))
+    else:
+        transformed = pygame.transform.scale(bitmap, (int(
+            bitmap.get_width() / scaleFactor), int(bitmap.get_height() / scaleFactor)))
+ 
+    screen.blit(transformed,
+                    (int(rect[0] + (rect[2] - bitmap.get_width() / scaleFactor) / 2),
+                     int(rect[1] + (rect[3] - bitmap.get_height() / scaleFactor) / 2)))
+
+def fillBlit(rect, bitmap, screen, smooth=False):
+    if bitmap is None:
+        return
+
+    scaledWidth = bitmap.get_width() / rect[2]
+    scaledHeight = bitmap.get_height() / rect[3]
+    scaleFactor = min(scaledWidth, scaledHeight)
+    if smooth:
+        transformed = pygame.transform.smoothscale(bitmap, (int(
+            bitmap.get_width() / scaleFactor), int(bitmap.get_height() / scaleFactor)))
+    else:
+        transformed = pygame.transform.scale(bitmap, (int(
+            bitmap.get_width() / scaleFactor), int(bitmap.get_height() / scaleFactor)))
+
+    screen.blit(transformed,
+                    (int(rect[0] + (rect[2] - bitmap.get_width() / scaleFactor) / 2),
+                     int(rect[1] + (rect[3] - bitmap.get_height() / scaleFactor) / 2)))
+
+
 
 # UI classes ---------------------------------------------------------------
 
@@ -77,43 +117,6 @@ class Icon:
 # After Icons are loaded at runtime, a pass is made through the global
 # buttons[] list to assign the Icon objects (from names) to each Button.
  
-def fitBlit(rect, bitmap, screen, smooth=False):
-    if bitmap is None:
-        return
-
-    scaledWidth = bitmap.get_width() / rect[2]
-    scaledHeight = bitmap.get_height() / rect[3]
-    scaleFactor = max(scaledWidth, scaledHeight)
-    if smooth:
-        transformed = pygame.transform.smoothscale(bitmap, (int(
-            bitmap.get_width() / scaleFactor), int(bitmap.get_height() / scaleFactor)))
-    else:
-        transformed = pygame.transform.scale(bitmap, (int(
-            bitmap.get_width() / scaleFactor), int(bitmap.get_height() / scaleFactor)))
- 
-    screen.blit(transformed,
-                    (int(rect[0] + (rect[2] - bitmap.get_width() / scaleFactor) / 2),
-                     int(rect[1] + (rect[3] - bitmap.get_height() / scaleFactor) / 2)))
-
-def fillBlit(rect, bitmap, screen, smooth=False):
-    if bitmap is None:
-        return
-
-    scaledWidth = bitmap.get_width() / rect[2]
-    scaledHeight = bitmap.get_height() / rect[3]
-    scaleFactor = min(scaledWidth, scaledHeight)
-    if smooth:
-        transformed = pygame.transform.smoothscale(bitmap, (int(
-            bitmap.get_width() / scaleFactor), int(bitmap.get_height() / scaleFactor)))
-    else:
-        transformed = pygame.transform.scale(bitmap, (int(
-            bitmap.get_width() / scaleFactor), int(bitmap.get_height() / scaleFactor)))
-
-    screen.blit(transformed,
-                    (int(rect[0] + (rect[2] - bitmap.get_width() / scaleFactor) / 2),
-                     int(rect[1] + (rect[3] - bitmap.get_height() / scaleFactor) / 2)))
-
-
 class Button:
 
     def __init__(self, rect, **kwargs):
@@ -170,6 +173,19 @@ class Button:
                     break
 
 
+class Screen(Enum):
+    VIEW = 0
+    DELETE = 1
+    NO_IMG = 2
+    VIEWFINDER = 3
+    SETTINGS_STORAGE = 4 
+    SETTINGS_SIZE = 5
+    SETTINGS_EFFECT = 6
+    SETTINGS_ISO = 7
+    SETTINGS_EV = 8
+    QUIT = 9
+
+
 # UI callbacks -------------------------------------------------------------
 # These are defined before globals because they're referenced by items in
 # the global buttons[] list.
@@ -178,6 +194,7 @@ def isoCallback(n):  # Pass 1 (next ISO) or -1 (prev ISO)
     global isoMode
     setIsoMode((isoMode + n) % len(isoData))
 
+
 def evCallback(n):  # Pass 1 (next ISO) or -1 (prev ISO)
     global evMode
     setEvMode((evMode + n) % len(evData))
@@ -185,17 +202,21 @@ def evCallback(n):  # Pass 1 (next ISO) or -1 (prev ISO)
 
 def settingCallback(n):  # Pass 1 (next setting) or -1 (prev setting)
     global screenMode
-    # Modes 1 and 2 are special modes you shouldn't be able to navigate into
-    acceptableModes = (0, 3, 4, 5, 6, 7, 8, 9)
+    # Omitting Storage settings because it doesn't do anything
+    # Omitting Effect settings because it doesn't do anything
+    # Omitting Delete Confirmation and No Image because those are special screens you can't navigate to normally
+    acceptableModes = (Screen.VIEW, Screen.VIEWFINDER, Screen.SETTINGS_EV, Screen.SETTINGS_ISO, Screen.SETTINGS_SIZE, Screen.QUIT)
+
+    currentScreen = Screen(screenMode)
 
     # You can't navigate out of these normally
-    if screenMode not in acceptableModes:
+    if currentScreen not in acceptableModes:
         return
 
-    position = acceptableModes.index(screenMode)
+    position = acceptableModes.index(currentScreen)
     position += n
     position %= len(acceptableModes)
-    screenMode = acceptableModes[position]
+    screenMode = acceptableModes[position].value
 
 
 def fxCallback(n):  # Pass 1 (next effect) or -1 (prev effect)
@@ -607,7 +628,7 @@ def setIsoMode(n):
         isoMode = n
         # pycamera2 deals with analogue and digital gain, not ISO
         if isoMode > 0:
-            camera.controls.AnalogueGain = math.log2(isoData[isoMode][0]/100)
+            camera.controls.AnalogueGain = math.log2(isoData[isoMode][0]/50)
         # Only works when auto exposure is off, 0 for Auto
         camera.controls.AeEnable = isoMode == 0
         buttons[7][5].setBg('iso-' + str(isoData[isoMode][0]))
@@ -815,6 +836,8 @@ for s in buttons:        # For each screenful of buttons...
                 b.fg = None
 
 loadSettings()  # Must come last; fiddles with Button/Icon states
+
+screens = ['playback', 'delete_confirmation', '']
 
 # This array defines the custom function of the keyboard buttons for each
 # screen
