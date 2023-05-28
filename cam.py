@@ -55,10 +55,11 @@ def fitBlit(rect, bitmap, screen, smooth=False):
     else:
         transformed = pygame.transform.scale(bitmap, (int(
             bitmap.get_width() / scaleFactor), int(bitmap.get_height() / scaleFactor)))
- 
+
     screen.blit(transformed,
-                    (int(rect[0] + (rect[2] - bitmap.get_width() / scaleFactor) / 2),
-                     int(rect[1] + (rect[3] - bitmap.get_height() / scaleFactor) / 2)))
+                (int(rect[0] + (rect[2] - bitmap.get_width() / scaleFactor) / 2),
+                 int(rect[1] + (rect[3] - bitmap.get_height() / scaleFactor) / 2)))
+
 
 def fillBlit(rect, bitmap, screen, smooth=False):
     if bitmap is None:
@@ -75,9 +76,8 @@ def fillBlit(rect, bitmap, screen, smooth=False):
             bitmap.get_width() / scaleFactor), int(bitmap.get_height() / scaleFactor)))
 
     screen.blit(transformed,
-                    (int(rect[0] + (rect[2] - bitmap.get_width() / scaleFactor) / 2),
-                     int(rect[1] + (rect[3] - bitmap.get_height() / scaleFactor) / 2)))
-
+                (int(rect[0] + (rect[2] - bitmap.get_width() / scaleFactor) / 2),
+                 int(rect[1] + (rect[3] - bitmap.get_height() / scaleFactor) / 2)))
 
 
 # UI classes ---------------------------------------------------------------
@@ -116,7 +116,8 @@ class Icon:
 # may take input precedence (e.g. the Effect labels & buttons).
 # After Icons are loaded at runtime, a pass is made through the global
 # buttons[] list to assign the Icon objects (from names) to each Button.
- 
+
+
 class Button:
 
     def __init__(self, rect, **kwargs):
@@ -178,7 +179,7 @@ class Screen(Enum):
     DELETE = 1
     NO_IMG = 2
     VIEWFINDER = 3
-    SETTINGS_STORAGE = 4 
+    SETTINGS_STORAGE = 4
     SETTINGS_SIZE = 5
     SETTINGS_EFFECT = 6
     SETTINGS_ISO = 7
@@ -205,7 +206,8 @@ def settingCallback(n):  # Pass 1 (next setting) or -1 (prev setting)
     # Omitting Storage settings because it doesn't do anything
     # Omitting Effect settings because it doesn't do anything
     # Omitting Delete Confirmation and No Image because those are special screens you can't navigate to normally
-    acceptableModes = (Screen.VIEW, Screen.VIEWFINDER, Screen.SETTINGS_EV, Screen.SETTINGS_ISO, Screen.SETTINGS_SIZE, Screen.QUIT)
+    acceptableModes = (Screen.VIEW, Screen.VIEWFINDER, Screen.SETTINGS_EV,
+                       Screen.SETTINGS_ISO, Screen.SETTINGS_SIZE, Screen.QUIT)
 
     currentScreen = Screen(screenMode)
 
@@ -266,21 +268,21 @@ def spinner():
     # screen is not ready
     if not screen:
         return
-    buttons[screenMode][3].setBg('working')
-    buttons[screenMode][3].draw(screen)
+    buttons.get(Screen(screenMode))[3].setBg('working')
+    buttons.get(Screen(screenMode))[3].draw(screen)
     pygame.display.update()
 
     busy = True
     n = 0
     while busy is True:
-        buttons[screenMode][4].setBg('work-' + str(n))
-        buttons[screenMode][4].draw(screen)
+        buttons.get(Screen(screenMode))[4].setBg('work-' + str(n))
+        buttons.get(Screen(screenMode))[4].draw(screen)
         pygame.display.update()
         n = (n + 1) % 5
         time.sleep(0.15)
 
-    buttons[screenMode][3].setBg(None)
-    buttons[screenMode][4].setBg(None)
+    buttons.get(Screen(screenMode))[3].setBg(None)
+    buttons.get(Screen(screenMode))[4].setBg(None)
     screenModePrior = -1  # Force refresh
 
 
@@ -317,9 +319,9 @@ def showNextImage(direction):
                 showImage(n)
                 break
     except:
-        #TODO: show an error message
+        # TODO: show an error message
         pass
-    
+
     busy = False
     t.join()
 
@@ -373,33 +375,31 @@ def deleteCallback(n):  # Delete confirmation
 
 def storeModeCallback(n):  # Radio buttons on storage settings screen
     global storeMode
-    buttons[4][storeMode + 3].setBg('radio3-0')
+    buttons.get(Screen.SETTINGS_STORAGE)[storeMode + 3].setBg('radio3-0')
     storeMode += n
     storeMode %= len(sizeData)
-    buttons[4][storeMode + 3].setBg('radio3-1')
+    buttons.get(Screen.SETTINGS_STORAGE)[storeMode + 3].setBg('radio3-1')
 
 
 def setSizeMode(n):
     global sizeMode
     # Size mode should never be out of bounds, but it might be!
-    buttons[5][sizeMode + 3].setBg('radio3-0')
+    buttons.get(Screen.SETTINGS_SIZE)[sizeMode + 3].setBg('radio3-0')
     sizeMode = n
-    buttons[5][sizeMode + 3].setBg('radio3-1')
+    buttons.get(Screen.SETTINGS_SIZE)[sizeMode + 3].setBg('radio3-1')
     camera.still_configuration.main.size = sizeData[n][0]
     camera.stop()
     camera.configure("still")
     camera.still_configuration.align()
     camera.start()
 
+
 def sizeModeCallback(n):  # Radio buttons on size settings screen
     global sizeMode
     setSizeMode((sizeMode + n) % len(sizeData))
 
 
-
-
 # Global stuff -------------------------------------------------------------
-
 screenMode = 3      # Current screen mode; default = viewfinder
 screenModePrior = -1      # Prior screen mode (for detecting changes)
 settingMode = 4      # Last-used settings mode (default = storage)
@@ -415,7 +415,8 @@ loadIdx = -1      # Image index for loading
 scaled = None    # pygame Surface w/last-loaded image
 screen_height = 240     # TFT display height
 screen_width = 240     # TFT display width
-screen_rotation = 270 # counterclockwise rotation of your camera sensor from vertical (ribbon cable port pointing down)
+# counterclockwise rotation of your camera sensor from vertical (ribbon cable port pointing down)
+screen_rotation = 270
 imageQueue = queue.Queue()
 
 # To use Dropbox uploader, must have previously run the dropbox_uploader.sh
@@ -427,7 +428,7 @@ uploader = '/home/pi/Dropbox-Uploader/dropbox_uploader.sh'
 upconfig = '/home/pi/.dropbox_uploader'
 
 sizeData = [  # Camera parameters for different size settings
-    # Full res      Viewfinder  
+    # Full res      Viewfinder
     [(4000, 3000), (320, 240)],  # 12 MP
     [(3840, 2160), (426, 240)],  # 8 MP / 4K HD
     [(2592, 1944), (320, 240)],  # 5 MP
@@ -438,24 +439,24 @@ isoData = [  # Values for ISO settings [ISO value, indicator X position]
     [400, 164], [500, 197], [640, 244], [800, 297]]
 
 evData = [  # Values for EV compensation settings [EV compensation value, indicator X position]
-        [-8, 13],   
-        [-7, int(13+18.5)],
-        [-6, int(13+18.5*2)], 
-        [-5, int(13+18.5*3)],
-        [-4, int(13+18.5*4)],
-        [-3, int(13+18.5*5)],
-        [-2, int(13+18.5*6)],
-        [-1, int(13+18.5*7)],
-        [0,  int(13+18.5*8)],
-        [1,  int(13+18.5*9)],
-        [2,  int(13+18.5*10)],
-        [3,  int(13+18.5*11)],
-        [4,  int(13+18.5*12)],
-        [5,  int(13+18.5*13)], 
-        [6,  int(13+18.5*14)], 
-        [7,  int(13+18.5*15)], 
-        [8,  int(13+18.5*16)]
-      ]
+    [-8, 13],
+    [-7, int(13+18.5)],
+    [-6, int(13+18.5*2)],
+    [-5, int(13+18.5*3)],
+    [-4, int(13+18.5*4)],
+    [-3, int(13+18.5*5)],
+    [-2, int(13+18.5*6)],
+    [-1, int(13+18.5*7)],
+    [0,  int(13+18.5*8)],
+    [1,  int(13+18.5*9)],
+    [2,  int(13+18.5*10)],
+    [3,  int(13+18.5*11)],
+    [4,  int(13+18.5*12)],
+    [5,  int(13+18.5*13)],
+    [6,  int(13+18.5*14)],
+    [7,  int(13+18.5*15)],
+    [8,  int(13+18.5*16)]
+]
 
 # A fixed list of image effects is used (rather than polling
 # camera.IMAGE_EFFECTS) because the latter contains a few elements
@@ -476,7 +477,7 @@ pathData = [
 
 icons = []  # This list gets populated at startup
 
-# buttons[] is a list of lists; each top-level list element corresponds
+# buttons[] is a dict of lists; each top-level element corresponds
 # to one screen mode (e.g. viewfinder, image playback, storage settings),
 # and each element within those lists corresponds to one UI button.
 # There's a little bit of repetition (e.g. prev/next buttons are
@@ -486,128 +487,134 @@ icons = []  # This list gets populated at startup
 
 # Scaling button sized dynamically to screen resolution.
 # The old camera project hardcoded these to fit 320x240
+
+
 def scaleHeight(height):
     return int(height * screen_height / 240)
+
 
 def scaleWidth(width):
     return int(width * screen_width / 320)
 
 
-buttons = [
+buttons = dict({
     # Screen mode 0 is photo playback
-    [   Button((0, scaleWidth(188), screen_width, scaleHeight(52)), ), # We don't need the done button anymore, but the layout is hardcoded
-        Button((0, 0, scaleWidth(80), scaleHeight(52)),
+    Screen.VIEW: [Button((0, scaleWidth(188), screen_width, scaleHeight(52)), ),  # We don't need the done button anymore, but the layout is hardcoded
+                  Button((0, 0, scaleWidth(80), scaleHeight(52)),
                bg='prev', cb=imageCallback, value=-1),
-        Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
+                  Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
                bg='next', cb=imageCallback, value=1),
-        Button((scaleWidth(88), scaleHeight(70), scaleWidth(157),
-               scaleHeight(102))),  # 'Working' label (when enabled)
-        Button((scaleWidth(148), scaleHeight(129), scaleWidth(
-            22), scaleHeight(22))),  # Spinner (when enabled)
-        Button((scaleWidth(121), 0, scaleWidth(78), scaleHeight(52)), bg='trash', cb=imageCallback, value=0)],
+                  Button((scaleWidth(88), scaleHeight(70), scaleWidth(157),
+                          scaleHeight(102))),  # 'Working' label (when enabled)
+                  Button((scaleWidth(148), scaleHeight(129), scaleWidth(
+                      22), scaleHeight(22))),  # Spinner (when enabled)
+                  Button((scaleWidth(121), 0, scaleWidth(78), scaleHeight(52)), bg='trash', cb=imageCallback, value=0)],
 
     # Screen mode 1 is delete confirmation
-    [Button((0, scaleHeight(35), scaleWidth(320), scaleHeight(33)), bg='delete'),
-        Button((scaleWidth(32), scaleHeight(86), scaleWidth(120), scaleHeight(100)), bg='yn', fg='yes',
-               cb=deleteCallback, value=True),
-        Button((scaleWidth(168), scaleHeight(86), scaleWidth(120), scaleHeight(100)), bg='yn', fg='no',
-               cb=deleteCallback, value=False)],
+    Screen.DELETE: [Button((0, scaleHeight(35), scaleWidth(320), scaleHeight(33)), bg='delete'),
+                    Button((scaleWidth(32), scaleHeight(86), scaleWidth(120), scaleHeight(100)), bg='yn', fg='yes',
+                           cb=deleteCallback, value=True),
+                    Button((scaleWidth(168), scaleHeight(86), scaleWidth(120), scaleHeight(100)), bg='yn', fg='no',
+                           cb=deleteCallback, value=False)],
 
     # Screen mode 2 is 'No Images'
-    [Button((0, 0, scaleWidth(320), scaleHeight(240)), cb=doneCallback),  # Full screen = button
-        # Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)),
-        # bg='done'),       # Fake 'Done' button
-        Button((0, scaleHeight(53), scaleWidth(320), scaleHeight(80)), bg='empty')],     # 'Empty' message
+    Screen.NO_IMG: [Button((0, 0, scaleWidth(320), scaleHeight(240)), cb=doneCallback),  # Full screen = button
+                    # Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)),
+                    # bg='done'),       # Fake 'Done' button
+                    Button((0, scaleHeight(53), scaleWidth(320), scaleHeight(80)), bg='empty')],     # 'Empty' message
 
     # Screen mode 3 is viewfinder / snapshot
-    [Button((0, scaleHeight(188), scaleWidth(156), scaleHeight(52)), bg='gear', cb=viewCallback, value=0),
-        Button((scaleWidth(164), scaleHeight(188), scaleWidth(156),
-               scaleHeight(52)), bg='play', cb=viewCallback, value=1),
-        Button((0, 0, scaleWidth(320), scaleHeight(240)),
-               cb=viewCallback, value=2),
-        Button((scaleWidth(88), scaleHeight(51), scaleWidth(157),
-               scaleHeight(102))),  # 'Working' label (when enabled)
-        Button((scaleWidth(148), scaleHeight(110), scaleWidth(22), scaleHeight(22)))],  # Spinner (when enabled)
+    Screen.VIEWFINDER: [Button((0, scaleHeight(188), scaleWidth(156), scaleHeight(52)), bg='gear', cb=viewCallback, value=0),
+                        Button((scaleWidth(164), scaleHeight(188), scaleWidth(156),
+                                scaleHeight(52)), bg='play', cb=viewCallback, value=1),
+                        Button((0, 0, scaleWidth(320), scaleHeight(240)),
+                               cb=viewCallback, value=2),
+                        Button((scaleWidth(88), scaleHeight(51), scaleWidth(157),
+                                scaleHeight(102))),  # 'Working' label (when enabled)
+                        Button((scaleWidth(148), scaleHeight(110), scaleWidth(22), scaleHeight(22)))],  # Spinner (when enabled)
 
     # Remaining screens are settings modes
 
     # Screen mode 4 is storage settings
-    [   Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52))), # We don't need the done button anymore, but the layout is hardcoded
-        Button((0, 0, scaleWidth(80), scaleHeight(52)),
-               bg='prev', cb=settingCallback, value=-1),
-        Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
-               bg='next', cb=settingCallback, value=1),
-        Button((scaleWidth(2), scaleHeight(60), scaleWidth(100), scaleHeight(120)), bg='radio3-1', fg='store-folder',
-               cb=storeModeCallback, value=0),
-        Button((scaleWidth(110), scaleHeight(60), scaleWidth(100), scaleHeight(120)), bg='radio3-0', fg='store-boot',
-               cb=storeModeCallback, value=1),
-        Button((scaleWidth(218), scaleHeight(60), scaleWidth(100), scaleHeight(120)), bg='radio3-0', fg='store-dropbox',
-               cb=storeModeCallback, value=2),
-        Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(35)), bg='storage')],
+    Screen.SETTINGS_STORAGE: [Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52))),  # We don't need the done button anymore, but the layout is hardcoded
+                              Button((0, 0, scaleWidth(80), scaleHeight(52)),
+                                     bg='prev', cb=settingCallback, value=-1),
+                              Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
+                                     bg='next', cb=settingCallback, value=1),
+                              Button((scaleWidth(2), scaleHeight(60), scaleWidth(100), scaleHeight(120)), bg='radio3-1', fg='store-folder',
+                                     cb=storeModeCallback, value=0),
+                              Button((scaleWidth(110), scaleHeight(60), scaleWidth(100), scaleHeight(120)), bg='radio3-0', fg='store-boot',
+                                     cb=storeModeCallback, value=1),
+                              Button((scaleWidth(218), scaleHeight(60), scaleWidth(100), scaleHeight(120)), bg='radio3-0', fg='store-dropbox',
+                                     cb=storeModeCallback, value=2),
+                              Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(35)), bg='storage')],
 
     # Screen mode 5 is size settings
-    [   Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52))), # We don't need the done button anymore, but the layout is hardcoded
-        Button((0, 0, scaleWidth(80), scaleHeight(52)),
-               bg='prev', cb=settingCallback, value=-1),
-        Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
-               bg='next', cb=settingCallback, value=1),
-        Button((scaleWidth(2), scaleHeight(60), scaleWidth(100), scaleHeight(120)), bg='radio3-1', fg='size-l',
-               cb=sizeModeCallback, value=0),
-        Button((scaleWidth(110), scaleHeight(60), scaleWidth(100), scaleHeight(120)), bg='radio3-0', fg='size-m',
-               cb=sizeModeCallback, value=1),
-        Button((scaleWidth(218), scaleHeight(60), scaleWidth(100), scaleHeight(120)), bg='radio3-0', fg='size-s',
-               cb=sizeModeCallback, value=2),
-        Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(29)), bg='size')],
+    Screen.SETTINGS_SIZE: [Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52))),  # We don't need the done button anymore, but the layout is hardcoded
+                           Button((0, 0, scaleWidth(80), scaleHeight(52)),
+                                  bg='prev', cb=settingCallback, value=-1),
+                           Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
+                                  bg='next', cb=settingCallback, value=1),
+                           Button((scaleWidth(2), scaleHeight(60), scaleWidth(100), scaleHeight(120)), bg='radio3-1', fg='size-l',
+                                  cb=sizeModeCallback, value=0),
+                           Button((scaleWidth(110), scaleHeight(60), scaleWidth(100), scaleHeight(120)), bg='radio3-0', fg='size-m',
+                                  cb=sizeModeCallback, value=1),
+                           Button((scaleWidth(218), scaleHeight(60), scaleWidth(100), scaleHeight(120)), bg='radio3-0', fg='size-s',
+                                  cb=sizeModeCallback, value=2),
+                           Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(29)), bg='size')],
 
     # Screen mode 6 is graphic effect
-    [   Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52))), # We don't need the done button anymore, but the layout is hardcoded:
-        Button((0, 0, scaleWidth(80), scaleHeight(52)),
-               bg='prev', cb=settingCallback, value=-1),
-        Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
-               bg='next', cb=settingCallback, value=1),
-        Button((0, scaleHeight(70), scaleWidth(80), scaleHeight(52)),
-               bg='prev', cb=fxCallback, value=-1),
-        Button((scaleWidth(240), scaleHeight(70), scaleWidth(80),
-               scaleHeight(52)), bg='next', cb=fxCallback, value=1),
-        Button((0, scaleHeight(67), scaleWidth(320), scaleHeight(91)), bg='fx-none'),
-        Button((0, scaleHeight(11), scaleWidth(320), scaleHeight(29)), bg='fx')],
+    Screen.SETTINGS_EFFECT: [Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52))),  # We don't need the done button anymore, but the layout is hardcoded:
+                             Button((0, 0, scaleWidth(80), scaleHeight(52)),
+                                    bg='prev', cb=settingCallback, value=-1),
+                             Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
+                                    bg='next', cb=settingCallback, value=1),
+                             Button((0, scaleHeight(70), scaleWidth(80), scaleHeight(52)),
+                                    bg='prev', cb=fxCallback, value=-1),
+                             Button((scaleWidth(240), scaleHeight(70), scaleWidth(80),
+                                     scaleHeight(52)), bg='next', cb=fxCallback, value=1),
+                             Button((0, scaleHeight(67), scaleWidth(
+                                 320), scaleHeight(91)), bg='fx-none'),
+                             Button((0, scaleHeight(11), scaleWidth(320), scaleHeight(29)), bg='fx')],
 
     # Screen mode 7 is ISO
-    [Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)), bg='done', cb=doneCallback),
-        Button((0, 0, scaleWidth(80), scaleHeight(52)),
-               bg='prev', cb=settingCallback, value=-1),
-        Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
-               bg='next', cb=settingCallback, value=1),
-        Button((0, scaleHeight(70), scaleWidth(80), scaleHeight(52)),
-               bg='prev', cb=isoCallback, value=-1),
-        Button((scaleWidth(240), scaleHeight(70), scaleWidth(80),
-               scaleHeight(52)), bg='next', cb=isoCallback, value=1),
-        Button((0, scaleHeight(79), scaleWidth(
-            320), scaleHeight(33)), bg='iso-0'),
-        Button((scaleWidth(9), scaleHeight(134), scaleWidth(302), scaleHeight(26)), bg='iso-bar'),
-        Button((0, scaleHeight(157), scaleWidth(
-            21), scaleHeight(19)), bg='iso-arrow'),
-        Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(29)), bg='iso')],
-    
-     # Screen mode 8 is EV Compensation
-    [Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)), bg='done', cb=doneCallback),
-        Button((0, 0, scaleWidth(80), scaleHeight(52)),
-               bg='prev', cb=settingCallback, value=-1),
-        Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
-               bg='next', cb=settingCallback, value=1),
-        Button((0, scaleHeight(70), scaleWidth(80), scaleHeight(52)),
-               bg='prev', cb=evCallback, value=-1),
-        Button((scaleWidth(240), scaleHeight(70), scaleWidth(80),
-               scaleHeight(52)), bg='next', cb=evCallback, value=1),
-        Button((0, scaleHeight(79), scaleWidth(
-            320), scaleHeight(33)), bg='iso-0'),
-        Button((scaleWidth(9), scaleHeight(134), scaleWidth(302), scaleHeight(26)), bg='ev-bar'),
-        Button((0, scaleHeight(157), scaleWidth(
-            21), scaleHeight(19)), bg='iso-arrow'),
-        Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(29)), bg='ev')],
+    Screen.SETTINGS_ISO: [Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)), bg='done', cb=doneCallback),
+                          Button((0, 0, scaleWidth(80), scaleHeight(52)),
+                                 bg='prev', cb=settingCallback, value=-1),
+                          Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
+                                 bg='next', cb=settingCallback, value=1),
+                          Button((0, scaleHeight(70), scaleWidth(80), scaleHeight(52)),
+                                 bg='prev', cb=isoCallback, value=-1),
+                          Button((scaleWidth(240), scaleHeight(70), scaleWidth(80),
+                                  scaleHeight(52)), bg='next', cb=isoCallback, value=1),
+                          Button((0, scaleHeight(79), scaleWidth(
+                              320), scaleHeight(33)), bg='iso-0'),
+                          Button((scaleWidth(9), scaleHeight(134), scaleWidth(
+                              302), scaleHeight(26)), bg='iso-bar'),
+                          Button((0, scaleHeight(157), scaleWidth(
+                              21), scaleHeight(19)), bg='iso-arrow'),
+                          Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(29)), bg='iso')],
+
+    # Screen mode 8 is EV Compensation
+    Screen.SETTINGS_EV: [Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)), bg='done', cb=doneCallback),
+                         Button((0, 0, scaleWidth(80), scaleHeight(52)),
+                                bg='prev', cb=settingCallback, value=-1),
+                         Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
+                                bg='next', cb=settingCallback, value=1),
+                         Button((0, scaleHeight(70), scaleWidth(80), scaleHeight(52)),
+                                bg='prev', cb=evCallback, value=-1),
+                         Button((scaleWidth(240), scaleHeight(70), scaleWidth(80),
+                                 scaleHeight(52)), bg='next', cb=evCallback, value=1),
+                         Button((0, scaleHeight(79), scaleWidth(
+                             320), scaleHeight(33)), bg='iso-0'),
+                         Button((scaleWidth(9), scaleHeight(134), scaleWidth(
+                             302), scaleHeight(26)), bg='ev-bar'),
+                         Button((0, scaleHeight(157), scaleWidth(
+                             21), scaleHeight(19)), bg='iso-arrow'),
+                         Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(29)), bg='ev')],
 
     # Screen mode 9 is quit confirmation
-    [  # Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)), bg='done', cb=doneCallback),
+    Screen.QUIT: [  # Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)), bg='done', cb=doneCallback),
         Button((0, 0, scaleWidth(80), scaleHeight(52)),
                bg='prev', cb=settingCallback, value=-1),
         Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
@@ -615,32 +622,37 @@ buttons = [
         Button((scaleWidth(110), scaleHeight(60), scaleWidth(100),
                scaleHeight(120)), bg='quit-ok', cb=quitCallback),
         Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(35)), bg='quit')]
-]
+})
 
 # Assorted utility functions -----------------------------------------------
 
 # Doesn't do anything at the moment
+
+
 def setFxMode(n):
     global fxMode
     fxMode = n
 # camera.image_effect = fxData[fxMode]
-    buttons[6][5].setBg('fx-' + fxData[fxMode])
+    buttons.get(Screen.SETTINGS_EFFECT)[5].setBg('fx-' + fxData[fxMode])
+
 
 def setIsoMode(n):
     global isoMode
-    try:   
+    try:
         isoMode = n
         # pycamera2 deals with analogue and digital gain, not ISO
         if isoMode > 0:
             camera.controls.AnalogueGain = math.log2(isoData[isoMode][0]/25)
         # Only works when auto exposure is off, 0 for Auto
         camera.controls.AeEnable = isoMode == 0
-        buttons[7][5].setBg('iso-' + str(isoData[isoMode][0]))
-        buttons[7][7].rect = ((scaleWidth(isoData[isoMode][1] - 10),) +
-                            buttons[7][7].rect[1:])
+        buttons.get(Screen.SETTINGS_ISO)[5].setBg(
+            'iso-' + str(isoData[isoMode][0]))
+        buttons.get(Screen.SETTINGS_ISO)[7].rect = ((scaleWidth(isoData[isoMode][1] - 10),) +
+                                                    buttons.get(Screen.SETTINGS_ISO)[7].rect[1:])
     except:
         print("Could not change ISO mode")
         # For some reason changes to the settings sometimes break with a key error!
+
 
 def setEvMode(n):
     global evMode
@@ -649,9 +661,10 @@ def setEvMode(n):
         camera.controls.ExposureValue = evData[evMode][0]/2.0
         # Only seems to work when auto exposure is on
         camera.controls.AeEnable = True
-        buttons[8][5].setBg('ev-' + str(evData[evMode][0]))
-        buttons[8][7].rect = ((scaleWidth(evData[evMode][1] - 10),) +
-                            buttons[8][7].rect[1:])
+        buttons.get(Screen.SETTINGS_EV)[5].setBg(
+            'ev-' + str(evData[evMode][0]))
+        buttons.get(Screen.SETTINGS_EV)[7].rect = ((scaleWidth(evData[evMode][1] - 10),) +
+                                                   buttons.get(Screen.SETTINGS_EV)[7].rect[1:])
     except:
         print("Could not change EV Mode")
         # For some reason changes to the settings sometimes break with a key error!
@@ -666,7 +679,7 @@ def saveSettings():
              'iso': isoMode,
              'size': sizeMode,
              'store': storeMode,
-             'ev' : evMode}
+             'ev': evMode}
         pickle.dump(d, outfile)
         outfile.close()
     except BaseException:
@@ -829,7 +842,7 @@ for file in os.listdir(iconPath):
         icons.append(Icon(file.split('.')[0]))
 
 # Assign Icons to Buttons, now that they're loaded
-for s in buttons:        # For each screenful of buttons...
+for s in buttons.values():        # For each screenful of buttons...
     for b in s:  # For each button on screen...
         for i in icons:  # For each icon...
             if b.bg == i.name:  # Compare names; match?
@@ -846,29 +859,31 @@ screens = ['playback', 'delete_confirmation', '']
 # This array defines the custom function of the keyboard buttons for each
 # screen
 controls = dict({
-    Screen.VIEW: dict({pygame.K_UP: (imageCallback, -1),
-          pygame.K_DOWN: (imageCallback, 1),
-          pygame.K_b: (imageCallback, 0)
-          }),  # 0 is photo playback
+    Screen.VIEW: dict({pygame.K_LEFT: (imageCallback, -1),
+                       pygame.K_RIGHT: (imageCallback, 1),
+                       pygame.K_b: (imageCallback, 0)
+                       }),  # 0 is photo playback
     Screen.DELETE: dict({pygame.K_LEFT: (deleteCallback, True),
-          pygame.K_RIGHT: (deleteCallback, False)
-          }),  # 1 is delete confirmation
+                         pygame.K_RIGHT: (deleteCallback, False)
+                         }),  # 1 is delete confirmation
     Screen.NO_IMG: dict({}),  # 2 is photo playback if no images are available
-    Screen.VIEWFINDER: dict({pygame.K_a: (takePicture, None)}),  # 3 is viewfinder mode
+    # 3 is viewfinder mode
+    Screen.VIEWFINDER: dict({pygame.K_a: (takePicture, None)}),
     Screen.SETTINGS_STORAGE: dict({}),  # 4 is storage settings
-    Screen.SETTINGS_SIZE: dict({pygame.K_UP: (sizeModeCallback, 1),
-          pygame.K_DOWN: (sizeModeCallback, -1)
-          }),  # 5 is size settings
-    Screen.SETTINGS_EFFECT: dict({pygame.K_UP: (fxCallback, 1),
-          pygame.K_DOWN: (fxCallback, -1)
-          }),  # 6 is effects settings
-    Screen.SETTINGS_ISO: dict({pygame.K_UP: (isoCallback, 1),
-          pygame.K_DOWN: (isoCallback, -1)
-          }),  # 7 is ISO settings
-    Screen.SETTINGS_EV: dict({pygame.K_UP: (evCallback, 1),
-          pygame.K_DOWN: (evCallback, -1)
-          }),  # 8 is EV settings
-    Screen.QUIT: dict({pygame.K_b: (quitCallback, None)})  # 9 is the quit screen
+    Screen.SETTINGS_SIZE: dict({pygame.K_RIGHT: (sizeModeCallback, 1),
+                                pygame.K_LEFT: (sizeModeCallback, -1)
+                                }),  # 5 is size settings
+    Screen.SETTINGS_EFFECT: dict({pygame.K_RIGHT: (fxCallback, 1),
+                                  pygame.K_LEFT: (fxCallback, -1)
+                                  }),  # 6 is effects settings
+    Screen.SETTINGS_ISO: dict({pygame.K_RIGHT: (isoCallback, 1),
+                               pygame.K_LEFT: (isoCallback, -1)
+                               }),  # 7 is ISO settings
+    Screen.SETTINGS_EV: dict({pygame.K_RIGHT: (evCallback, 1),
+                              pygame.K_LEFT: (evCallback, -1)
+                              }),  # 8 is EV settings
+    Screen.QUIT: dict({pygame.K_b: (quitCallback, None)}
+                      )  # 9 is the quit screen
 })
 
 # Main loop ----------------------------------------------------------------
@@ -881,16 +896,17 @@ while (True):
             if (event.type is KEYDOWN):
                 # Execute the appropriate function for this key in the controls
                 # array
-                callbackTuple = controls.get(Screen(screenMode)).get(event.key, None)
+                callbackTuple = controls.get(
+                    Screen(screenMode)).get(event.key, None)
                 if callbackTuple:
                     if callbackTuple[1] is not None:
                         callbackTuple[0](callbackTuple[1])
                     else:
                         callbackTuple[0]()
             # Some keys have default meaning if not overwritten
-                if event.key == pygame.K_LEFT:
+                if event.key == pygame.K_DOWN:
                     settingCallback(-1)
-                elif event.key == pygame.K_RIGHT:
+                elif event.key == pygame.K_UP:
                     settingCallback(1)
                 elif event.key == pygame.K_z:  # Always have a backup key to quit out of the program in development
                     quitCallback()
@@ -908,25 +924,25 @@ while (True):
         yuv420 = camera.capture_array("lores")
         rgb = cv2.cvtColor(yuv420, cv2.COLOR_YUV420p2BGR)
         # The use of BGR here is intentional, for some reason the colours are wrong otherwise.
-        
+
         # Dimensions of the output buffer might not be the same as the input. Surprise!
         h, w, d = rgb.shape
-        img = pygame.image.frombuffer(rgb, (w,h), 'RGB')
+        img = pygame.image.frombuffer(rgb, (w, h), 'RGB')
         if pygame.display.get_init():
             screen.fill(0)
             img = pygame.transform.rotate(img, screen_rotation)
-            fillBlit((0,0,screen_width, screen_height), img, screen, True)
+            fillBlit((0, 0, screen_width, screen_height), img, screen, True)
     elif screenMode < 2:  # Playback mode or delete confirmation
         img = scaled       # Show last-loaded image
         screen.fill(0)
         if (img):
             img = pygame.transform.rotate(img, screen_rotation)
-            fitBlit((0,0,screen_width, screen_height), img, screen, True)
+            fitBlit((0, 0, screen_width, screen_height), img, screen, True)
     else:                # 'No Photos' mode
         img = None         # You get nothing, good day sir
 
     # Overlay buttons on display and update
-    for i, b in enumerate(buttons[screenMode]):
+    for i, b in enumerate(buttons.get(Screen(screenMode))):
         b.draw(screen)
     pygame.display.update()
 
