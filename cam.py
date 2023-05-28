@@ -305,17 +305,21 @@ def showNextImage(direction):
     t = threading.Thread(target=spinner)
     t.start()
 
-    n = loadIdx
-    while True:
-        n += direction
-        if (n > 9999):
-            n = 0
-        elif (n < 0):
-            n = 9999
-        if os.path.exists(pathData[storeMode] + '/IMG_' + '%04d' % n + '.JPG'):
-            showImage(n)
-            break
-
+    try:
+        n = loadIdx
+        while True:
+            n += direction
+            if (n > 9999):
+                n = 0
+            elif (n < 0):
+                n = 9999
+            if os.path.exists(pathData[storeMode] + '/IMG_' + '%04d' % n + '.JPG'):
+                showImage(n)
+                break
+    except:
+        #TODO: show an error message
+        pass
+    
     busy = False
     t.join()
 
@@ -628,7 +632,7 @@ def setIsoMode(n):
         isoMode = n
         # pycamera2 deals with analogue and digital gain, not ISO
         if isoMode > 0:
-            camera.controls.AnalogueGain = math.log2(isoData[isoMode][0]/50)
+            camera.controls.AnalogueGain = math.log2(isoData[isoMode][0]/25)
         # Only works when auto exposure is off, 0 for Auto
         camera.controls.AeEnable = isoMode == 0
         buttons[7][5].setBg('iso-' + str(isoData[isoMode][0]))
@@ -841,31 +845,31 @@ screens = ['playback', 'delete_confirmation', '']
 
 # This array defines the custom function of the keyboard buttons for each
 # screen
-controls = [
-    dict({pygame.K_UP: (imageCallback, -1),
+controls = dict({
+    Screen.VIEW: dict({pygame.K_UP: (imageCallback, -1),
           pygame.K_DOWN: (imageCallback, 1),
           pygame.K_b: (imageCallback, 0)
           }),  # 0 is photo playback
-    dict({pygame.K_LEFT: (deleteCallback, True),
+    Screen.DELETE: dict({pygame.K_LEFT: (deleteCallback, True),
           pygame.K_RIGHT: (deleteCallback, False)
           }),  # 1 is delete confirmation
-    dict({}),  # 2 is photo playback if no images are available
-    dict({pygame.K_a: (takePicture, None)}),  # 3 is viewfinder mode
-    dict({}),  # 4 is storage settings
-    dict({pygame.K_UP: (sizeModeCallback, 1),
+    Screen.NO_IMG: dict({}),  # 2 is photo playback if no images are available
+    Screen.VIEWFINDER: dict({pygame.K_a: (takePicture, None)}),  # 3 is viewfinder mode
+    Screen.SETTINGS_STORAGE: dict({}),  # 4 is storage settings
+    Screen.SETTINGS_SIZE: dict({pygame.K_UP: (sizeModeCallback, 1),
           pygame.K_DOWN: (sizeModeCallback, -1)
           }),  # 5 is size settings
-    dict({pygame.K_UP: (fxCallback, 1),
+    Screen.SETTINGS_EFFECT: dict({pygame.K_UP: (fxCallback, 1),
           pygame.K_DOWN: (fxCallback, -1)
           }),  # 6 is effects settings
-    dict({pygame.K_UP: (isoCallback, 1),
+    Screen.SETTINGS_ISO: dict({pygame.K_UP: (isoCallback, 1),
           pygame.K_DOWN: (isoCallback, -1)
           }),  # 7 is ISO settings
-     dict({pygame.K_UP: (evCallback, 1),
+    Screen.SETTINGS_EV: dict({pygame.K_UP: (evCallback, 1),
           pygame.K_DOWN: (evCallback, -1)
           }),  # 8 is EV settings
-    dict({pygame.K_b: (quitCallback, None)})  # 9 is the quit screen
-    ]
+    Screen.QUIT: dict({pygame.K_b: (quitCallback, None)})  # 9 is the quit screen
+})
 
 # Main loop ----------------------------------------------------------------
 
@@ -877,7 +881,7 @@ while (True):
             if (event.type is KEYDOWN):
                 # Execute the appropriate function for this key in the controls
                 # array
-                callbackTuple = controls[screenMode].get(event.key, None)
+                callbackTuple = controls.get(Screen(screenMode)).get(event.key, None)
                 if callbackTuple:
                     if callbackTuple[1] is not None:
                         callbackTuple[0](callbackTuple[1])
