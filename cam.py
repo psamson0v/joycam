@@ -187,6 +187,10 @@ class Screen(Enum):
     SETTINGS_EV = 8
     QUIT = 9
 
+class ZoomMode(Enum):
+    NORMAL = 0 # full sensor displayed
+    ZOOMED = 1 # extreme zoom to help focus, not intended to take photos
+
 
 # UI callbacks -------------------------------------------------------------
 # These are defined before globals because they're referenced by items in
@@ -256,6 +260,17 @@ def doneCallback():  # Exit settings
         settingMode = screenMode.value
         saveSettings()
     screenMode = Screen.VIEWFINDER  # Switch back to viewfinder mode
+
+def zoomModeCallback():
+    global zoom_mode
+    print('zooming')
+    if zoom_mode == ZoomMode.NORMAL:
+        zoom_mode = ZoomMode.ZOOMED
+        print('zoomed in')
+    else:
+        zoom_mode = ZoomMode.NORMAL
+        print('zoomed out')
+    setZoomMode(zoom_mode)
 
 
 screen = None  # Ugly hack to get the image viewer to load well
@@ -379,18 +394,22 @@ def storeModeCallback(n):  # Radio buttons on storage settings screen
     storeMode %= len(sizeData)
     buttons.get(Screen.SETTINGS_STORAGE)[storeMode + 3].setBg('radio3-1')
 
-
-def setSizeMode(n):
+# This is split into two methods since when loading the settings we just want to init button state, not apply settings
+def setSizeModeAndButtons(n):
     global sizeMode
     # Size mode should never be out of bounds, but it might be!
     buttons.get(Screen.SETTINGS_SIZE)[sizeMode + 3].setBg('radio3-0')
     sizeMode = n
     buttons.get(Screen.SETTINGS_SIZE)[sizeMode + 3].setBg('radio3-1')
+
+def setSizeMode(n):
+    setSizeModeAndButtons(n)
     camera.still_configuration.main.size = sizeData[n][0]
     camera.stop()
     camera.configure("still")
     camera.still_configuration.align()
     camera.start()
+    setZoomMode(ZoomMode.NORMAL) #reset zoom
 
 
 def sizeModeCallback(n):  # Radio buttons on size settings screen
@@ -417,14 +436,7 @@ screen_width = 240     # TFT display width
 # counterclockwise rotation of your camera sensor from vertical (ribbon cable port pointing down)
 screen_rotation = 270
 imageQueue = queue.Queue()
-
-# To use Dropbox uploader, must have previously run the dropbox_uploader.sh
-# script to set up the app key and such.  If this was done as the normal pi
-# user, set upconfig to the .dropbox_uploader config file in that account's
-# home directory.  Alternately, could run the setup script as root and
-# delete the upconfig line below.
-uploader = '/home/pi/Dropbox-Uploader/dropbox_uploader.sh'
-upconfig = '/home/pi/.dropbox_uploader'
+zoom_mode = ZoomMode.NORMAL # By default digital zoom is not used
 
 sizeData = [  # Camera parameters for different size settings
     # Full res      Viewfinder
@@ -499,10 +511,8 @@ def scaleWidth(width):
 buttons = dict({
     # Screen mode 0 is photo playback
     Screen.VIEW: [Button((0, scaleWidth(188), screen_width, scaleHeight(52)), ),  # We don't need the done button anymore, but the layout is hardcoded
-                  Button((0, 0, scaleWidth(80), scaleHeight(52)),
-               bg='prev', cb=imageCallback, value=-1),
-                  Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
-               bg='next', cb=imageCallback, value=1),
+                  Button((0, 0, scaleWidth(80), scaleHeight(52)), bg='prev', cb=imageCallback, value=-1),
+                  Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)), bg='next', cb=imageCallback, value=1),
                   Button((scaleWidth(88), scaleHeight(70), scaleWidth(157),
                           scaleHeight(102))),  # 'Working' label (when enabled)
                   Button((scaleWidth(148), scaleHeight(129), scaleWidth(
@@ -566,9 +576,7 @@ buttons = dict({
     Screen.SETTINGS_EFFECT: [Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52))),  # We don't need the done button anymore, but the layout is hardcoded:
                              Button((0, 0, scaleWidth(80), scaleHeight(52)),
                                     bg='prev', cb=settingCallback, value=-1),
-                             Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
-                                    bg='next', cb=settingCallback, value=1),
-                             Button((0, scaleHeight(70), scaleWidth(80), scaleHeight(52)),
+                             Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)), 
                                     bg='prev', cb=fxCallback, value=-1),
                              Button((scaleWidth(240), scaleHeight(70), scaleWidth(80),
                                      scaleHeight(52)), bg='next', cb=fxCallback, value=1),
@@ -614,13 +622,13 @@ buttons = dict({
 
     # Screen mode 9 is quit confirmation
     Screen.QUIT: [  # Button((0, scaleHeight(188), scaleWidth(320), scaleHeight(52)), bg='done', cb=doneCallback),
-        Button((0, 0, scaleWidth(80), scaleHeight(52)),
-               bg='prev', cb=settingCallback, value=-1),
-        Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
-               bg='next', cb=settingCallback, value=1),
-        Button((scaleWidth(110), scaleHeight(60), scaleWidth(100),
-               scaleHeight(120)), bg='quit-ok', cb=quitCallback),
-        Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(35)), bg='quit')]
+                        Button((0, 0, scaleWidth(80), scaleHeight(52)),
+                            bg='prev', cb=settingCallback, value=-1),
+                        Button((scaleWidth(240), 0, scaleWidth(80), scaleHeight(52)),
+                            bg='next', cb=settingCallback, value=1),
+                        Button((scaleWidth(110), scaleHeight(60), scaleWidth(100),
+                            scaleHeight(120)), bg='quit-ok', cb=quitCallback),
+                        Button((0, scaleHeight(10), scaleWidth(320), scaleHeight(35)), bg='quit')]
 })
 
 # Assorted utility functions -----------------------------------------------
@@ -668,6 +676,15 @@ def setEvMode(n):
         print("Could not change EV Mode")
         # For some reason changes to the settings sometimes break with a key error!
 
+def setZoomMode(mode):
+    (x_offset, y_offset, width, height) = camera.camera_properties['ScalerCropMaximum']
+    zoom_factor = 4 # you can't tell if something is focused in 1:1 mapping, so let's scale
+    factor_width = screen_width * zoom_factor
+    factor_height = screen_height * zoom_factor
+    if mode == ZoomMode.NORMAL:
+        camera.controls.ScalerCrop = (x_offset, y_offset, width, height)
+    elif mode == ZoomMode.ZOOMED:
+        camera.controls.ScalerCrop = (int((width-factor_width)/2), int((height-factor_height)/2), factor_width, factor_height)
 
 def saveSettings():
     try:
@@ -686,6 +703,7 @@ def saveSettings():
 
 
 def loadSettings():
+    global sizeMode
     try:
         infile = open('cam.pkl', 'rb')
         d = pickle.load(infile)
@@ -695,7 +713,7 @@ def loadSettings():
         if 'iso' in d:
             setIsoMode(d['iso'])
         if 'size' in d:
-            setSizeMode(d['size'])
+            setSizeModeAndButtons(d['size']) 
         if 'store' in d:
             storeModeCallback(d['store'])
         if 'ev' in d:
@@ -794,8 +812,8 @@ def takePicture():
 
 # Initialization -----------------------------------------------------------
 # Init framebuffer/touchscreen environment variables
-#os.putenv('SDL_VIDEODRIVER', 'fbcon')
-#os.putenv('SDL_FBDEV', '/dev/fb0')
+os.putenv('SDL_VIDEODRIVER', 'fbcon')
+os.putenv('SDL_FBDEV', '/dev/fb0')
 # !!!!!!!ATTENTION!!!!!!!!
 # When attached to an HDMI monitor, your TFT display will be /dev/fb1
 # When operating on its own, your TFT display will be /dev/fb0
@@ -819,10 +837,38 @@ res = (screen_width, screen_height)
 
 # Init pygame and screen
 pygame.init()
-#screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 # Uncomment to run in a window on a desktop instead
-screen = pygame.display.set_mode(res)
+# screen = pygame.display.set_mode(res)
 pygame.mouse.set_visible(False)
+
+BACKGROUND = (0, 0, 0)
+TEXTCOLOUR = (255, 255, 255)
+# set up Fonts
+fontObj = pygame.font.Font(None, 32)
+textSufaceObj = fontObj.render('Loading assets', True, TEXTCOLOUR, None)
+screen.blit(textSufaceObj, (0, int(screen_height/2)))
+pygame.display.update()
+
+# Load all icons at startup.
+for file in os.listdir(iconPath):
+    if fnmatch.fnmatch(file, '*.png'):
+        icons.append(Icon(file.split('.')[0]))
+
+# Assign Icons to Buttons, now that they're loaded
+for s in buttons.values():        # For each screenful of buttons...
+    for b in s:  # For each button on screen...
+        for i in icons:  # For each icon...
+            if b.bg == i.name:  # Compare names; match?
+                b.iconBg = i  # Assign Icon to Button
+                b.bg = None  # Name no longer used; allow garbage collection
+            if b.fg == i.name:
+                b.iconFg = i
+                b.fg = None
+
+screen.fill(0)
+t = threading.Thread(target=spinner)
+t.start()
 
 # Set up Camera
 # Tuning file for the Raspberry Pi HQ Camera
@@ -843,21 +889,7 @@ camera.start()
 
 atexit.register(camera.stop)
 
-# Load all icons at startup.
-for file in os.listdir(iconPath):
-    if fnmatch.fnmatch(file, '*.png'):
-        icons.append(Icon(file.split('.')[0]))
 
-# Assign Icons to Buttons, now that they're loaded
-for s in buttons.values():        # For each screenful of buttons...
-    for b in s:  # For each button on screen...
-        for i in icons:  # For each icon...
-            if b.bg == i.name:  # Compare names; match?
-                b.iconBg = i  # Assign Icon to Button
-                b.bg = None  # Name no longer used; allow garbage collection
-            if b.fg == i.name:
-                b.iconFg = i
-                b.fg = None
 
 loadSettings()  # Must come last; fiddles with Button/Icon states
 
@@ -875,7 +907,8 @@ controls = dict({
                          }),  # 1 is delete confirmation
     Screen.NO_IMG: dict({}),  # 2 is photo playback if no images are available
     # 3 is viewfinder mode
-    Screen.VIEWFINDER: dict({pygame.K_a: (takePicture, None)}),
+    Screen.VIEWFINDER: dict({pygame.K_a: (takePicture, None),
+                             pygame.K_RIGHT: (zoomModeCallback, None)}),
     Screen.SETTINGS_STORAGE: dict({}),  # 4 is storage settings
     Screen.SETTINGS_SIZE: dict({pygame.K_RIGHT: (sizeModeCallback, 1),
                                 pygame.K_LEFT: (sizeModeCallback, -1)
@@ -894,7 +927,8 @@ controls = dict({
 })
 
 # Main loop ----------------------------------------------------------------
-
+busy = False
+t.join()
 while (True):
 
     # Process touchscreen input
