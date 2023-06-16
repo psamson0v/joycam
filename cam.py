@@ -706,8 +706,6 @@ def loadSettings():
 # Scan files in a directory, locating JPEGs with names matching the
 # software's convention (IMG_XXXX.JPG), returning a tuple with the
 # lowest and highest indices (or None if no matching files).
-
-
 def imgRange(path):
     min = 9999
     max = 0
@@ -721,7 +719,6 @@ def imgRange(path):
                     max = i
     finally:
         return None if min > max else (min, max)
-
 
 def takePicture():
     global busy, gid, loadIdx, saveIdx, scaled, sizeMode, storeMode, storeModePrior, uid, screen_height, screen_width
@@ -766,17 +763,28 @@ def takePicture():
 
     scaled = None
     try:
-        camera.capture_file(filename, format='jpeg')
-    # Set image file ownership to pi user, mode to 644
-    # os.chown(filename, uid, gid) # Not working, why?
-        os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR |
-                 stat.S_IRGRP | stat.S_IROTH)
-        img = pygame.image.load(filename)
-        scaled = pygame.transform.scale(img, sizeData[sizeMode][1])
-
+        request = camera.capture_request()
+        # camera.capture_file(filename, format='jpeg')
+        img = request.make_image('main')
+        request.release()
+        print("Request released")
+        # Set image file ownership to pi user, mode to 644
+        # os.chown(filename, uid, gid) # Not working, why?
+        # os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+        # img = pygame.image.load(filename)
+        mode = img.mode
+        size = img.size
+        data = img.tobytes()
+        py_image = pygame.image.fromstring(data, size, mode)
+        scaled = pygame.transform.scale(py_image, sizeData[sizeMode][1])
+        print("Transform complete")
+        img.save(filename)
+        print("Save complete")
+        # Set image file ownership to pi user, mode to 644
+        # os.chown(filename, uid, gid) # Not working, why?
+        os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
     finally:
         # Add error handling/indicator (disk full, etc.)
-
         busy = False
         t.join()
 
@@ -786,8 +794,8 @@ def takePicture():
 
 # Initialization -----------------------------------------------------------
 # Init framebuffer/touchscreen environment variables
-os.putenv('SDL_VIDEODRIVER', 'fbcon')
-os.putenv('SDL_FBDEV', '/dev/fb0')
+#os.putenv('SDL_VIDEODRIVER', 'fbcon')
+#os.putenv('SDL_FBDEV', '/dev/fb0')
 # !!!!!!!ATTENTION!!!!!!!!
 # When attached to an HDMI monitor, your TFT display will be /dev/fb1
 # When operating on its own, your TFT display will be /dev/fb0
@@ -811,9 +819,9 @@ res = (screen_width, screen_height)
 
 # Init pygame and screen
 pygame.init()
-screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+#screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 # Uncomment to run in a window on a desktop instead
-# screen = pygame.display.set_mode(res)
+screen = pygame.display.set_mode(res)
 pygame.mouse.set_visible(False)
 
 # Set up Camera
@@ -860,7 +868,7 @@ screens = ['playback', 'delete_confirmation', '']
 controls = dict({
     Screen.VIEW: dict({pygame.K_LEFT: (imageCallback, -1),
                        pygame.K_RIGHT: (imageCallback, 1),
-                       pygame.K_b: (imageCallback, 0)
+                       pygame.K_RETURN: (imageCallback, 0)
                        }),  # 0 is photo playback
     Screen.DELETE: dict({pygame.K_LEFT: (deleteCallback, True),
                          pygame.K_RIGHT: (deleteCallback, False)
@@ -881,7 +889,7 @@ controls = dict({
     Screen.SETTINGS_EV: dict({pygame.K_RIGHT: (evCallback, 1),
                               pygame.K_LEFT: (evCallback, -1)
                               }),  # 8 is EV settings
-    Screen.QUIT: dict({pygame.K_b: (quitCallback, None)}
+    Screen.QUIT: dict({pygame.K_RETURN: (quitCallback, None)}
                       )  # 9 is the quit screen
 })
 
