@@ -412,10 +412,10 @@ iconPath = 'icons'  # Subdirectory containing UI bitmaps (PNG format)
 saveIdx = -1      # Image index for saving (-1 = none set yet)
 loadIdx = -1      # Image index for loading
 scaled = None    # pygame Surface w/last-loaded image
-screen_height = 135     # TFT display height
+screen_height = 240     # TFT display height
 screen_width = 240     # TFT display width
 # counterclockwise rotation of your camera sensor from vertical (ribbon cable port pointing down)
-screen_rotation = 180
+screen_rotation = 270
 imageQueue = queue.Queue()
 
 # To use Dropbox uploader, must have previously run the dropbox_uploader.sh
