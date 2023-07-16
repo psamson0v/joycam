@@ -40,6 +40,7 @@ from subprocess import call
 import queue
 import math
 from enum import Enum
+from libcamera import controls
 
 
 def fitBlit(rect, bitmap, screen, smooth=False):
@@ -884,6 +885,10 @@ camera.still_configuration.enable_lores()
 camera.still_configuration.lores.size = sizeData[sizeMode][1]
 camera.still_configuration.align()
 camera.start()
+
+# I want my photos to be black and white and grainy. If you don't want that, remove these two lines
+camera.controls.Saturation = 0.0
+camera.controls.NoiseReductionMode = controls.draft.NoiseReductionModeEnum.Off
 
 # Set up buttons
 
