@@ -197,9 +197,9 @@ class ZoomMode(Enum):
 # These are defined before globals because they're referenced by items in
 # the global buttons[] list.
 
-def isoCallback(n):  # Pass 1 (next ISO) or -1 (prev ISO)
-    global isoMode
-    setIsoMode((isoMode + n) % len(isoData))
+def isoCallback(n):  # Increment or decrement analogue gain
+    global analogueGain
+    setIsoMode(analogueGain + n)
 
 
 def evCallback(n):  # Pass 1 (next ISO) or -1 (prev ISO)
@@ -426,7 +426,7 @@ storeMode = 0      # Storage mode; default = Photos folder
 storeModePrior = -1      # Prior storage mode (for detecting changes)
 sizeMode = 0      # Image size: default = Large
 fxMode = 0      # Image effect: default = Normal
-isoMode = 0      # ISO setting; default = Auto
+analogueGain = 0      # ISO setting; default = Auto
 evMode = 0       # EV Compensation. Default: 0
 iconPath = 'icons'  # Subdirectory containing UI bitmaps (PNG format)
 saveIdx = -1      # Image index for saving (-1 = none set yet)
@@ -534,9 +534,8 @@ buttons = dict({
                     Button((0, scaleHeight(53), scaleWidth(320), scaleHeight(80)), bg='empty')],     # 'Empty' message
 
     # Screen mode 3 is viewfinder / snapshot
-    Screen.VIEWFINDER: [Button((0, scaleHeight(188), scaleWidth(156), scaleHeight(52)), bg='gear', cb=viewCallback, value=0),
-                        Button((scaleWidth(164), scaleHeight(188), scaleWidth(156),
-                                scaleHeight(52)), bg='play', cb=viewCallback, value=1),
+    Screen.VIEWFINDER: [Button((0, scaleHeight(188), 1, 1), bg='gear', cb=viewCallback, value=0), # Don't need these buttons anymore. TODO: remove entirely
+                        Button((scaleWidth(164), scaleHeight(188), 1, 1), bg='play', cb=viewCallback, value=1),
                         Button((0, 0, scaleWidth(320), scaleHeight(240)),
                                cb=viewCallback, value=2),
                         Button((scaleWidth(88), scaleHeight(51), scaleWidth(157),
@@ -645,18 +644,28 @@ def setFxMode(n):
 
 
 def setIsoMode(n):
-    global isoMode
+    global analogueGain
     try:
-        isoMode = n
+        
+        (min_gain, max_gain, default_gain) = camera.camera_controls['AnalogueGain']
+        print(min_gain, max_gain, default_gain, n)
+
+        # Make sure the gain is within limits
+        n = max(min_gain, n)
+        n = min(max_gain, n)
+
         # pycamera2 deals with analogue and digital gain, not ISO
-        if isoMode > 0:
-            camera.controls.AnalogueGain = math.log2(isoData[isoMode][0]/25)
-        # Only works when auto exposure is off, 0 for Auto
-        camera.controls.AeEnable = isoMode == 0
-        buttons.get(Screen.SETTINGS_ISO)[5].setBg(
-            'iso-' + str(isoData[isoMode][0]))
-        buttons.get(Screen.SETTINGS_ISO)[7].rect = ((scaleWidth(isoData[isoMode][1] - 10),) +
-                                                    buttons.get(Screen.SETTINGS_ISO)[7].rect[1:])
+
+        camera.controls.AnalogueGain = n
+        analogueGain = n
+        # Only works when auto exposure is off
+        camera.controls.AeEnable = False
+
+        # dynamically adjust indicator position as a percentage of the ISO bar
+        cursorWidth = buttons.get(Screen.SETTINGS_ISO)[7].rect[2]
+        indicatorPosition = int(n/(max_gain-min_gain) * buttons.get(Screen.SETTINGS_ISO)[6].rect[2] - cursorWidth * 2)
+        buttons.get(Screen.SETTINGS_ISO)[7].rect = ((cursorWidth + indicatorPosition,) + buttons.get(Screen.SETTINGS_ISO)[7].rect[1:])
+
     except:
         print("Could not change ISO mode")
         # For some reason changes to the settings sometimes break with a key error!
@@ -693,7 +702,7 @@ def saveSettings():
         # Use a dictionary (rather than pickling 'raw' values) so
         # the number & order of things can change without breaking.
         d = {'fx': fxMode,
-             'iso': isoMode,
+             'iso': analogueGain,
              'size': sizeMode,
              'store': storeMode,
              'ev': evMode}
