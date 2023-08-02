@@ -794,17 +794,15 @@ def takePicture():
         request = camera.capture_request()
         # camera.capture_file(filename, format='jpeg')
         array = request.make_array('main')
+        array_thumb = request.make_array('lores')
         request.release()
         print("Request released")
-        # Set image file ownership to pi user, mode to 644
-        # os.chown(filename, uid, gid) # Not working, why?
-        # os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
-        # img = pygame.image.load(filename)
-        #mode = img.mode
-        #size = img.size
-        #data = img.tobytes()
-        #py_image = pygame.image.fromstring(data, size, mode)
-        #scaled = pygame.transform.scale(py_image, sizeData[sizeMode][1])
+       
+        rgb = cv2.cvtColor(array_thumb, cv2.COLOR_YUV420p2BGR)
+        # Dimensions of the output buffer might not be the same as the input. Surprise!
+        h, w, d = rgb.shape
+        scaled = pygame.image.frombuffer(rgb, (w, h), 'RGB')
+
         img = cv2.cvtColor(array, cv2.COLOR_BGR2GRAY)
         print("Transform complete")
         # img.save(filename)
@@ -848,7 +846,8 @@ gid = int(s) if s else os.getgid()
 res = (screen_width, screen_height)
 
 # Init pygame and screen
-pygame.init()
+pygame.display.init()
+pygame.font.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 # Uncomment to run in a window on a desktop instead
 # screen = pygame.display.set_mode(res)
