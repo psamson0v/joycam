@@ -319,9 +319,6 @@ def imgRange(path):
 def showNextImage(direction):
     global busy, loadIdx
 
-    t = threading.Thread(target=spinner)
-    t.start()
-
     try:
         n = loadIdx
         while True:
@@ -333,27 +330,33 @@ def showNextImage(direction):
             if os.path.exists(pathData[storeMode] + '/IMG_' + '%04d' % n + '.JPG'):
                 showImage(n)
                 break
-    except:
-        # TODO: show an error message
-        pass
-
-    busy = False
-    t.join()
-
+    except Exception as e:
+            print(e)
 
 def showImage(n):
     global busy, loadIdx, scaled, screenMode, screenModePrior, sizeMode, storeMode
 
-    t = threading.Thread(target=spinner)
-    t.start()
+    filename = pathData[storeMode] + '/IMG_' + '%04d' % n + '.JPG'
+    print(filename)
+    #cache thumbnail
+    if filename in thumbnails:
+        try:
+            print("Getting from cache")
+            scaled = thumbnails[filename]
+        except Exception as e:
+            print(e)
+    else:
+        t = threading.Thread(target=spinner)
+        t.start()
+        print("Getting from disk")
+        img = pygame.image.load(filename)
+        scaled = pygame.transform.scale(img, sizeData[sizeMode][1])
+        thumbnails[filename] = scaled
+        busy = False
+        t.join()
 
-    img = pygame.image.load(
-        pathData[storeMode] + '/IMG_' + '%04d' % n + '.JPG')
-    scaled = pygame.transform.scale(img, sizeData[sizeMode][1])
+    print("get OK")
     loadIdx = n
-
-    busy = False
-    t.join()
 
     screenMode = Screen.VIEW  # Photo playback
     screenModePrior = Screen.REFRESH  # Force screen refresh
@@ -438,6 +441,7 @@ screen_width = 240     # TFT display width
 screen_rotation = 270
 imageQueue = queue.Queue()
 zoom_mode = ZoomMode.NORMAL # By default digital zoom is not used
+thumbnails = {}
 
 sizeData = [  # Camera parameters for different size settings
     # Full res      Viewfinder
@@ -648,7 +652,6 @@ def setIsoMode(n):
     try:
         
         (min_gain, max_gain, default_gain) = camera.camera_controls['AnalogueGain']
-        print(min_gain, max_gain, default_gain, n)
 
         # Make sure the gain is within limits
         n = max(min_gain, n)
@@ -802,6 +805,7 @@ def takePicture():
         # Dimensions of the output buffer might not be the same as the input. Surprise!
         h, w, d = rgb.shape
         scaled = pygame.image.frombuffer(rgb, (w, h), 'RGB')
+        thumbnails[filename] = scaled
 
         img = cv2.cvtColor(array, cv2.COLOR_BGR2GRAY)
         print("Transform complete")
