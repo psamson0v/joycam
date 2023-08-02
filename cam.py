@@ -319,9 +319,6 @@ def imgRange(path):
 def showNextImage(direction):
     global busy, loadIdx
 
-    t = threading.Thread(target=spinner)
-    t.start()
-
     try:
         n = loadIdx
         while True:
@@ -333,27 +330,33 @@ def showNextImage(direction):
             if os.path.exists(pathData[storeMode] + '/IMG_' + '%04d' % n + '.JPG'):
                 showImage(n)
                 break
-    except:
-        # TODO: show an error message
-        pass
-
-    busy = False
-    t.join()
-
+    except Exception as e:
+            print(e)
 
 def showImage(n):
     global busy, loadIdx, scaled, screenMode, screenModePrior, sizeMode, storeMode
 
-    t = threading.Thread(target=spinner)
-    t.start()
+    filename = pathData[storeMode] + '/IMG_' + '%04d' % n + '.JPG'
+    print(filename)
+    #cache thumbnail
+    if filename in thumbnails:
+        try:
+            print("Getting from cache")
+            scaled = thumbnails[filename]
+        except Exception as e:
+            print(e)
+    else:
+        t = threading.Thread(target=spinner)
+        t.start()
+        print("Getting from disk")
+        img = pygame.image.load(filename)
+        scaled = pygame.transform.scale(img, sizeData[sizeMode][1])
+        thumbnails[filename] = scaled
+        busy = False
+        t.join()
 
-    img = pygame.image.load(
-        pathData[storeMode] + '/IMG_' + '%04d' % n + '.JPG')
-    scaled = pygame.transform.scale(img, sizeData[sizeMode][1])
+    print("get OK")
     loadIdx = n
-
-    busy = False
-    t.join()
 
     screenMode = Screen.VIEW  # Photo playback
     screenModePrior = Screen.REFRESH  # Force screen refresh
@@ -438,6 +441,7 @@ screen_width = 240     # TFT display width
 screen_rotation = 270
 imageQueue = queue.Queue()
 zoom_mode = ZoomMode.NORMAL # By default digital zoom is not used
+thumbnails = {}
 
 sizeData = [  # Camera parameters for different size settings
     # Full res      Viewfinder
@@ -648,7 +652,6 @@ def setIsoMode(n):
     try:
         
         (min_gain, max_gain, default_gain) = camera.camera_controls['AnalogueGain']
-        print(min_gain, max_gain, default_gain, n)
 
         # Make sure the gain is within limits
         n = max(min_gain, n)
@@ -793,20 +796,21 @@ def takePicture():
     try:
         request = camera.capture_request()
         # camera.capture_file(filename, format='jpeg')
-        img = request.make_image('main')
+        array = request.make_array('main')
+        array_thumb = request.make_array('lores')
         request.release()
         print("Request released")
-        # Set image file ownership to pi user, mode to 644
-        # os.chown(filename, uid, gid) # Not working, why?
-        # os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
-        # img = pygame.image.load(filename)
-        mode = img.mode
-        size = img.size
-        data = img.tobytes()
-        py_image = pygame.image.fromstring(data, size, mode)
-        scaled = pygame.transform.scale(py_image, sizeData[sizeMode][1])
+       
+        rgb = cv2.cvtColor(array_thumb, cv2.COLOR_YUV420p2BGR)
+        # Dimensions of the output buffer might not be the same as the input. Surprise!
+        h, w, d = rgb.shape
+        scaled = pygame.image.frombuffer(rgb, (w, h), 'RGB')
+        thumbnails[filename] = scaled
+
+        img = cv2.cvtColor(array, cv2.COLOR_BGR2GRAY)
         print("Transform complete")
-        img.save(filename)
+        # img.save(filename)
+        cv2.imwrite(filename, img, [cv2.IMWRITE_JPEG_QUALITY, 85])
         print("Save complete")
         # Set image file ownership to pi user, mode to 644
         # os.chown(filename, uid, gid) # Not working, why?
@@ -846,7 +850,8 @@ gid = int(s) if s else os.getgid()
 res = (screen_width, screen_height)
 
 # Init pygame and screen
-pygame.init()
+pygame.display.init()
+pygame.font.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 # Uncomment to run in a window on a desktop instead
 # screen = pygame.display.set_mode(res)
@@ -896,6 +901,7 @@ camera.still_configuration.align()
 camera.start()
 
 # I want my photos to be black and white and grainy. If you don't want that, remove these two lines
+# and also the CV2 COLOR_BGR2GRAY conversion
 camera.controls.Saturation = 0.0
 camera.controls.NoiseReductionMode = controls.draft.NoiseReductionModeEnum.Off
 
