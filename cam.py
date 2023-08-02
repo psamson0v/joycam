@@ -793,20 +793,22 @@ def takePicture():
     try:
         request = camera.capture_request()
         # camera.capture_file(filename, format='jpeg')
-        img = request.make_image('main')
+        array = request.make_array('main')
         request.release()
         print("Request released")
         # Set image file ownership to pi user, mode to 644
         # os.chown(filename, uid, gid) # Not working, why?
         # os.chmod(filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
         # img = pygame.image.load(filename)
-        mode = img.mode
-        size = img.size
-        data = img.tobytes()
-        py_image = pygame.image.fromstring(data, size, mode)
-        scaled = pygame.transform.scale(py_image, sizeData[sizeMode][1])
+        #mode = img.mode
+        #size = img.size
+        #data = img.tobytes()
+        #py_image = pygame.image.fromstring(data, size, mode)
+        #scaled = pygame.transform.scale(py_image, sizeData[sizeMode][1])
+        img = cv2.cvtColor(array, cv2.COLOR_BGR2GRAY)
         print("Transform complete")
-        img.save(filename)
+        # img.save(filename)
+        cv2.imwrite(filename, img, [cv2.IMWRITE_JPEG_QUALITY, 85])
         print("Save complete")
         # Set image file ownership to pi user, mode to 644
         # os.chown(filename, uid, gid) # Not working, why?
@@ -896,6 +898,7 @@ camera.still_configuration.align()
 camera.start()
 
 # I want my photos to be black and white and grainy. If you don't want that, remove these two lines
+# and also the CV2 COLOR_BGR2GRAY conversion
 camera.controls.Saturation = 0.0
 camera.controls.NoiseReductionMode = controls.draft.NoiseReductionModeEnum.Off
 
