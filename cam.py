@@ -438,7 +438,7 @@ scaled = None    # pygame Surface w/last-loaded image
 screen_height = 240     # TFT display height
 screen_width = 240     # TFT display width
 # counterclockwise rotation of your camera sensor from vertical (ribbon cable port pointing down)
-screen_rotation = 270
+screen_rotation = 180
 imageQueue = queue.Queue()
 zoom_mode = ZoomMode.NORMAL # By default digital zoom is not used
 thumbnails = {}
@@ -449,10 +449,6 @@ sizeData = [  # Camera parameters for different size settings
     [(3840, 2160), (426, 240)],  # 8 MP / 4K HD
     [(2592, 1944), (320, 240)],  # 5 MP
 ]
-
-isoData = [  # Values for ISO settings [ISO value, indicator X position]
-    [0, 27], [100, 64], [200, 97], [320, 137],
-    [400, 164], [500, 197], [640, 244], [800, 297]]
 
 evData = [  # Values for EV compensation settings [EV compensation value, indicator X position]
     [-8, 13],
@@ -695,6 +691,12 @@ def setZoomMode(mode):
     factor_width = screen_width * zoom_factor
     factor_height = screen_height * zoom_factor
     if mode == ZoomMode.NORMAL:
+        # These are custom cropping values forced by the way my lens is set up
+        # You almost certainly will want to change these
+        x_offset = 450
+        width = 3000
+        height = int(3000 * 0.75)
+        y_offset = 600
         camera.controls.ScalerCrop = (x_offset, y_offset, width, height)
     elif mode == ZoomMode.ZOOMED:
         camera.controls.ScalerCrop = (int((width-factor_width)/2), int((height-factor_height)/2), factor_width, factor_height)
@@ -904,6 +906,7 @@ camera.start()
 # and also the CV2 COLOR_BGR2GRAY conversion
 camera.controls.Saturation = 0.0
 camera.controls.NoiseReductionMode = controls.draft.NoiseReductionModeEnum.Off
+setZoomMode(ZoomMode.NORMAL)
 
 # Set up buttons
 
